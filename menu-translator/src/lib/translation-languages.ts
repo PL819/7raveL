@@ -18,11 +18,11 @@ export const LANGUAGE_OPTIONS: LanguageOption[] = [
     code: "zh-TW",
     label: "Traditional Chinese",
     nativeLabel: "繁體中文",
-    flag: "🇹🇼",
+    flag: "🇭🇰",
   },
 ]
 
-export const DEFAULT_LANGUAGE: TranslationLanguage = "en"
+export const DEFAULT_LANGUAGE: TranslationLanguage = "zh-TW"
 
 const STORAGE_KEY = "menu-translator:lang"
 
