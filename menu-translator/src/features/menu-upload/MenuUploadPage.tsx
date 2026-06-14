@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from "react"
 import { AnimatePresence, motion } from "framer-motion"
 import {
+  AlertCircle,
   Camera,
   CheckCircle2,
   ImageUp,
@@ -13,7 +14,9 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
+import { imageToBase64 } from "@/lib/image-to-base64"
 import { MOCK_MENU } from "@/lib/mock-menu"
+import { cn } from "@/lib/utils"
 import type { MenuData } from "@/types/menu"
 
 interface MenuUploadPageProps {
@@ -22,31 +25,105 @@ interface MenuUploadPageProps {
 
 type UploadState = "idle" | "preview" | "analyzing"
 
+const ACCEPTED_TYPES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/heic",
+  "image/heif",
+])
+
 const TIPS = [
   "Lay the menu flat with even lighting",
   "Capture the full page or one clear section",
   "Avoid glare and heavy shadows",
 ]
 
+function validateFile(file: File): string | null {
+  if (!ACCEPTED_TYPES.has(file.type)) {
+    const ext = file.name.split(".").pop()?.toUpperCase() ?? "unknown"
+    return `${ext} files aren't supported. Please use JPG, PNG, WebP, or HEIC.`
+  }
+  if (file.size > 20 * 1024 * 1024) {
+    return "File is too large. Please use an image under 20 MB."
+  }
+  return null
+}
+
 export function MenuUploadPage({ onMenuAnalyzed }: MenuUploadPageProps) {
   const [uploadState, setUploadState] = useState<UploadState>("idle")
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  // imageData is ready to pass to a real Gemini call in Milestone 2
+  const [_imageData, setImageData] = useState<{
+    base64: string
+    mimeType: string
+  } | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [isDragging, setIsDragging] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const cameraInputRef = useRef<HTMLInputElement>(null)
+
+  const processFile = useCallback(async (file: File) => {
+    setError(null)
+
+    const validationError = validateFile(file)
+    if (validationError) {
+      setError(validationError)
+      return
+    }
+
+    try {
+      const [url, data] = await Promise.all([
+        Promise.resolve(URL.createObjectURL(file)),
+        imageToBase64(file),
+      ])
+      setPreviewUrl(url)
+      setImageData(data)
+      setUploadState("preview")
+    } catch {
+      setError("Could not read the image. Please try another file.")
+    }
+  }, [])
 
   const handleFileChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0]
       if (!file) return
-      const url = URL.createObjectURL(file)
-      setPreviewUrl(url)
-      setUploadState("preview")
+      void processFile(file)
+      // reset input so selecting the same file again re-triggers onChange
+      e.target.value = ""
     },
-    [],
+    [processFile],
+  )
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    setIsDragging(true)
+  }, [])
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    // only clear when pointer truly leaves the drop zone
+    if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+      setIsDragging(false)
+    }
+  }, [])
+
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault()
+      setIsDragging(false)
+      const file = e.dataTransfer.files?.[0]
+      if (!file) return
+      void processFile(file)
+    },
+    [processFile],
   )
 
   const handleClear = useCallback(() => {
     setPreviewUrl(null)
+    setImageData(null)
+    setError(null)
     setUploadState("idle")
     if (fileInputRef.current) fileInputRef.current.value = ""
     if (cameraInputRef.current) cameraInputRef.current.value = ""
@@ -58,8 +135,10 @@ export function MenuUploadPage({ onMenuAnalyzed }: MenuUploadPageProps) {
         setUploadState("analyzing")
       } else {
         setPreviewUrl(null)
+        setImageData(null)
         setUploadState("analyzing")
       }
+      // TODO Milestone 2: replace with real Gemini call using _imageData
       window.setTimeout(() => {
         onMenuAnalyzed(MOCK_MENU)
       }, 2000)
@@ -91,6 +170,37 @@ export function MenuUploadPage({ onMenuAnalyzed }: MenuUploadPageProps) {
         </div>
       </div>
 
+      {/* Validation error */}
+      <AnimatePresence>
+        {error && (
+          <motion.div
+            key="error"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: 0.18 }}
+            role="alert"
+          >
+            <div className="flex items-start gap-3 rounded-xl border border-destructive/20 bg-destructive/5 px-4 py-3">
+              <AlertCircle
+                className="mt-0.5 size-4 shrink-0 text-destructive"
+                aria-hidden="true"
+              />
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium text-destructive">{error}</p>
+                <button
+                  type="button"
+                  onClick={() => setError(null)}
+                  className="mt-1 text-xs text-destructive/70 underline underline-offset-2 hover:text-destructive focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                >
+                  Try again
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Upload zone / preview */}
       <AnimatePresence mode="wait">
         {uploadState === "idle" && (
@@ -103,22 +213,49 @@ export function MenuUploadPage({ onMenuAnalyzed }: MenuUploadPageProps) {
           >
             <Card className="py-0">
               <CardContent className="space-y-2 p-3">
-                <button
+                {/* Drop zone */}
+                <motion.button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  className="flex h-40 w-full flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed border-border bg-muted/30 text-muted-foreground transition-all hover:border-primary/40 hover:bg-primary/5 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.99]"
-                  aria-label="Upload menu photo from library"
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  onDrop={handleDrop}
+                  animate={isDragging ? { scale: 1.015 } : { scale: 1 }}
+                  transition={{ type: "spring", stiffness: 400, damping: 25 }}
+                  whileTap={{ scale: 0.99 }}
+                  className={cn(
+                    "flex h-40 w-full flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed text-muted-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                    isDragging
+                      ? "border-primary bg-primary/8 text-foreground"
+                      : "border-border bg-muted/30 hover:border-primary/40 hover:bg-primary/5 hover:text-foreground",
+                  )}
+                  aria-label="Upload menu photo — click or drag and drop"
                 >
-                  <div className="rounded-xl bg-background p-3 shadow-sm">
-                    <ImageUp className="size-6" aria-hidden="true" />
+                  <div
+                    className={cn(
+                      "rounded-xl p-3 shadow-sm transition-colors",
+                      isDragging ? "bg-primary/10" : "bg-background",
+                    )}
+                  >
+                    <ImageUp
+                      className={cn(
+                        "size-6 transition-colors",
+                        isDragging && "text-primary",
+                      )}
+                      aria-hidden="true"
+                    />
                   </div>
                   <div className="text-center">
-                    <p className="text-sm font-medium">Upload menu photo</p>
+                    <p className="text-sm font-medium">
+                      {isDragging ? "Drop to upload" : "Upload menu photo"}
+                    </p>
                     <p className="mt-0.5 text-xs text-muted-foreground">
-                      JPG, PNG, WebP · up to 20 MB
+                      {isDragging
+                        ? "JPG, PNG, WebP, HEIC"
+                        : "Drag & drop, or click · JPG PNG WebP HEIC · max 20 MB"}
                     </p>
                   </div>
-                </button>
+                </motion.button>
 
                 <Button
                   type="button"
@@ -155,7 +292,7 @@ export function MenuUploadPage({ onMenuAnalyzed }: MenuUploadPageProps) {
                     <button
                       type="button"
                       onClick={handleClear}
-                      className="absolute right-2 top-2 flex size-8 items-center justify-center rounded-full bg-black/55 text-white backdrop-blur-sm transition-colors hover:bg-black/75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                      className="absolute right-2 top-2 flex size-9 items-center justify-center rounded-full bg-black/55 text-white backdrop-blur-sm transition-colors hover:bg-black/75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
                       aria-label="Remove photo"
                     >
                       <X className="size-4" />
@@ -270,7 +407,7 @@ export function MenuUploadPage({ onMenuAnalyzed }: MenuUploadPageProps) {
       <input
         ref={fileInputRef}
         type="file"
-        accept="image/*"
+        accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
         className="hidden"
         onChange={handleFileChange}
         aria-label="Upload menu photo from library"
