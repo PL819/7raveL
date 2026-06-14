@@ -17,6 +17,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { imageToBase64 } from "@/lib/image-to-base64"
 import { MOCK_MENU } from "@/lib/mock-menu"
 import { cn } from "@/lib/utils"
+import { analyzeMenuImage } from "@/services/gemini"
 import type { MenuData } from "@/types/menu"
 
 interface MenuUploadPageProps {
@@ -53,10 +54,10 @@ function validateFile(file: File): string | null {
 export function MenuUploadPage({ onMenuAnalyzed }: MenuUploadPageProps) {
   const [uploadState, setUploadState] = useState<UploadState>("idle")
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
-  // imageData is ready to pass to a real Gemini call in Milestone 2
-  const [_imageData, setImageData] = useState<{
+  const [imageData, setImageData] = useState<{
     base64: string
     mimeType: string
+    name: string
   } | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [isDragging, setIsDragging] = useState(false)
@@ -78,7 +79,7 @@ export function MenuUploadPage({ onMenuAnalyzed }: MenuUploadPageProps) {
         imageToBase64(file),
       ])
       setPreviewUrl(url)
-      setImageData(data)
+      setImageData({ ...data, name: file.name })
       setUploadState("preview")
     } catch {
       setError("Could not read the image. Please try another file.")
@@ -90,7 +91,6 @@ export function MenuUploadPage({ onMenuAnalyzed }: MenuUploadPageProps) {
       const file = e.target.files?.[0]
       if (!file) return
       void processFile(file)
-      // reset input so selecting the same file again re-triggers onChange
       e.target.value = ""
     },
     [processFile],
@@ -103,7 +103,6 @@ export function MenuUploadPage({ onMenuAnalyzed }: MenuUploadPageProps) {
 
   const handleDragLeave = useCallback((e: React.DragEvent) => {
     e.preventDefault()
-    // only clear when pointer truly leaves the drop zone
     if (!e.currentTarget.contains(e.relatedTarget as Node)) {
       setIsDragging(false)
     }
@@ -129,22 +128,34 @@ export function MenuUploadPage({ onMenuAnalyzed }: MenuUploadPageProps) {
     if (cameraInputRef.current) cameraInputRef.current.value = ""
   }, [])
 
-  const startAnalysis = useCallback(
-    (withPreview: boolean) => {
-      if (withPreview) {
-        setUploadState("analyzing")
-      } else {
-        setPreviewUrl(null)
-        setImageData(null)
-        setUploadState("analyzing")
-      }
-      // TODO Milestone 2: replace with real Gemini call using _imageData
-      window.setTimeout(() => {
-        onMenuAnalyzed(MOCK_MENU)
-      }, 2000)
-    },
-    [onMenuAnalyzed],
-  )
+  const analyzeWithImage = useCallback(async () => {
+    if (!imageData) return
+    setError(null)
+    setUploadState("analyzing")
+    try {
+      const result = await analyzeMenuImage({
+        base64: imageData.base64,
+        mimeType: imageData.mimeType,
+        sourceImageName: imageData.name,
+      })
+      onMenuAnalyzed(result)
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Analysis failed. Please try again."
+      setError(message)
+      setUploadState("preview")
+    }
+  }, [imageData, onMenuAnalyzed])
+
+  const runDemo = useCallback(() => {
+    setPreviewUrl(null)
+    setImageData(null)
+    setError(null)
+    setUploadState("analyzing")
+    window.setTimeout(() => {
+      onMenuAnalyzed(MOCK_MENU)
+    }, 1200)
+  }, [onMenuAnalyzed])
 
   return (
     <div className="flex flex-col gap-6 px-4 pb-10 pt-7">
@@ -170,7 +181,7 @@ export function MenuUploadPage({ onMenuAnalyzed }: MenuUploadPageProps) {
         </div>
       </div>
 
-      {/* Validation error */}
+      {/* Validation / API error */}
       <AnimatePresence>
         {error && (
           <motion.div
@@ -193,7 +204,7 @@ export function MenuUploadPage({ onMenuAnalyzed }: MenuUploadPageProps) {
                   onClick={() => setError(null)}
                   className="mt-1 text-xs text-destructive/70 underline underline-offset-2 hover:text-destructive focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 >
-                  Try again
+                  Dismiss
                 </button>
               </div>
             </div>
@@ -315,7 +326,7 @@ export function MenuUploadPage({ onMenuAnalyzed }: MenuUploadPageProps) {
           )}
       </AnimatePresence>
 
-      {/* Skeleton loading */}
+      {/* Skeleton — shown while analyzing (with or without preview) */}
       <AnimatePresence>
         {uploadState === "analyzing" && (
           <motion.div
@@ -353,7 +364,7 @@ export function MenuUploadPage({ onMenuAnalyzed }: MenuUploadPageProps) {
             <Button
               type="button"
               className="h-12 w-full gap-2 text-[15px] font-semibold"
-              onClick={() => startAnalysis(true)}
+              onClick={() => void analyzeWithImage()}
             >
               <Sparkles className="size-4" aria-hidden="true" />
               Analyze Menu
@@ -396,7 +407,7 @@ export function MenuUploadPage({ onMenuAnalyzed }: MenuUploadPageProps) {
             type="button"
             variant="ghost"
             className="h-11 w-full text-sm text-muted-foreground"
-            onClick={() => startAnalysis(false)}
+            onClick={runDemo}
           >
             Skip — try with demo menu →
           </Button>
