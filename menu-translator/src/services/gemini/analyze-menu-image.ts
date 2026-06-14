@@ -6,7 +6,7 @@ import type { MenuData, TranslationLanguage } from "@/types/menu"
 
 import { createGeminiClient } from "./client"
 
-const GEMINI_MODEL = "gemini-2.0-flash"
+const GEMINI_MODEL = "gemini-3.5-flash"
 
 // ---------------------------------------------------------------------------
 // Zod schemas for the raw Gemini JSON response
