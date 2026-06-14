@@ -1,5 +1,6 @@
 import { z } from "zod"
 
+import { generateId } from "@/lib/generate-id"
 import type { MenuData } from "@/types/menu"
 
 import { createGeminiClient } from "./client"
@@ -71,12 +72,12 @@ Rules:
 
 function toMenuData(raw: GeminiMenu, sourceImageName?: string): MenuData {
   const categories = raw.categories.map((cat) => {
-    const categoryId = crypto.randomUUID()
+    const categoryId = generateId()
     return {
       id: categoryId,
       name: cat.name,
       items: cat.items.map((item) => ({
-        id: crypto.randomUUID(),
+        id: generateId(),
         originalName: item.originalName,
         englishName: item.englishName,
         price: item.price,
@@ -88,7 +89,7 @@ function toMenuData(raw: GeminiMenu, sourceImageName?: string): MenuData {
   })
 
   return {
-    id: crypto.randomUUID(),
+    id: generateId(),
     sourceImageName,
     currency: raw.currency,
     categories,
