@@ -6,9 +6,10 @@ import { Minus, Plus, ShoppingCart } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
+import { getTranslations } from "@/lib/ui-translations"
 import { formatCurrency } from "@/lib/format-currency"
 import { cn } from "@/lib/utils"
-import type { CartItem, MenuData, MenuItem } from "@/types/menu"
+import type { CartItem, MenuData, MenuItem, TranslationLanguage } from "@/types/menu"
 
 interface MenuBrowserPageProps {
   menu: MenuData
@@ -16,6 +17,7 @@ interface MenuBrowserPageProps {
   onAddToCart: (item: MenuItem) => void
   onDecrementCart: (itemId: string) => void
   onViewCart: () => void
+  language: TranslationLanguage
 }
 
 export function MenuBrowserPage({
@@ -24,10 +26,13 @@ export function MenuBrowserPage({
   onAddToCart,
   onDecrementCart,
   onViewCart,
+  language,
 }: MenuBrowserPageProps) {
   const [activeCategoryId, setActiveCategoryId] = useState(
     menu.categories[0]?.id ?? "",
   )
+
+  const t = getTranslations(language)
 
   const cartMap = useMemo(
     () => new Map(cartItems.map((ci) => [ci.item.id, ci.quantity])),
@@ -45,7 +50,7 @@ export function MenuBrowserPage({
     <div className="flex h-full flex-col">
       {/* Page title */}
       <div className="shrink-0 px-4 pb-1 pt-5">
-        <h1 className="text-xl font-semibold">Translated Menu</h1>
+        <h1 className="text-xl font-semibold">{t.browser.title}</h1>
         {menu.sourceImageName && (
           <p className="mt-0.5 truncate text-xs text-muted-foreground">
             {menu.sourceImageName}
@@ -133,9 +138,10 @@ export function MenuBrowserPage({
               className="h-12 w-full gap-2.5 rounded-xl text-sm font-semibold shadow-sm"
             >
               <ShoppingCart className="size-4" aria-hidden="true" />
-              View Order
+              {t.browser.viewOrder}
               <span className="rounded-full bg-primary-foreground/20 px-2 py-0.5 text-xs">
-                {totalCartQty} {totalCartQty === 1 ? "item" : "items"}
+                {totalCartQty}{" "}
+                {totalCartQty === 1 ? t.browser.item : t.browser.items}
               </span>
             </Button>
           </motion.div>

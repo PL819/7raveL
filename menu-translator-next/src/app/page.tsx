@@ -7,8 +7,10 @@ import { Camera, ShoppingCart, UtensilsCrossed } from "lucide-react"
 import { CartPage } from "@/features/cart/CartPage"
 import { MenuBrowserPage } from "@/features/menu-browser/MenuBrowserPage"
 import { MenuUploadPage } from "@/features/menu-upload/MenuUploadPage"
+import { getTranslations } from "@/lib/ui-translations"
+import { loadLanguagePreference } from "@/lib/translation-languages"
 import { cn } from "@/lib/utils"
-import type { CartItem, MenuData, MenuItem, ViewState } from "@/types/menu"
+import type { CartItem, MenuData, MenuItem, TranslationLanguage, ViewState } from "@/types/menu"
 
 // Shared layout ID for the animated active-tab indicator
 const NAV_INDICATOR_ID = "nav-active-indicator"
@@ -25,6 +27,11 @@ export default function HomePage() {
   const [view, setView] = useState<ViewState>("upload")
   const [menuData, setMenuData] = useState<MenuData | null>(null)
   const [cartItems, setCartItems] = useState<CartItem[]>([])
+  const [language, setLanguage] = useState<TranslationLanguage>(
+    loadLanguagePreference,
+  )
+
+  const t = getTranslations(language)
 
   const totalCartQty = useMemo(
     () => cartItems.reduce((sum, ci) => sum + ci.quantity, 0),
@@ -76,7 +83,11 @@ export default function HomePage() {
                 transition={PAGE_TRANSITION}
                 className="absolute inset-0 overflow-y-auto"
               >
-                <MenuUploadPage onMenuAnalyzed={handleMenuAnalyzed} />
+                <MenuUploadPage
+                  onMenuAnalyzed={handleMenuAnalyzed}
+                  language={language}
+                  onLanguageChange={setLanguage}
+                />
               </motion.div>
             )}
 
@@ -96,6 +107,7 @@ export default function HomePage() {
                   onAddToCart={handleAddToCart}
                   onDecrementCart={handleDecrementCart}
                   onViewCart={() => setView("cart")}
+                  language={language}
                 />
               </motion.div>
             )}
@@ -116,6 +128,7 @@ export default function HomePage() {
                   onAddToCart={handleAddToCart}
                   onDecrementCart={handleDecrementCart}
                   onBack={() => setView("menu")}
+                  language={language}
                 />
               </motion.div>
             )}
@@ -129,20 +142,20 @@ export default function HomePage() {
         >
           <div className="grid h-16 grid-cols-3">
             <NavTab
-              label="Scan"
+              label={t.nav.scan}
               icon={<Camera className="size-5" />}
               isActive={view === "upload"}
               onClick={() => setView("upload")}
             />
             <NavTab
-              label="Menu"
+              label={t.nav.menu}
               icon={<UtensilsCrossed className="size-5" />}
               isActive={view === "menu"}
               onClick={() => setView("menu")}
               disabled={!menuData}
             />
             <NavTab
-              label="Cart"
+              label={t.nav.cart}
               isActive={view === "cart"}
               onClick={() => setView("cart")}
               icon={

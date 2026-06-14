@@ -18,10 +18,8 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { imageToBase64 } from "@/lib/image-to-base64"
 import { MOCK_MENU } from "@/lib/mock-menu"
-import {
-  getLanguageOption,
-  loadLanguagePreference,
-} from "@/lib/translation-languages"
+import { getTranslations } from "@/lib/ui-translations"
+import { getLanguageOption } from "@/lib/translation-languages"
 import { cn } from "@/lib/utils"
 import { analyzeMenuImage } from "@/services/analyze-menu"
 import type { MenuData, TranslationLanguage } from "@/types/menu"
@@ -30,6 +28,8 @@ import { LanguageSettingsDrawer } from "./LanguageSettingsDrawer"
 
 interface MenuUploadPageProps {
   onMenuAnalyzed: (data: MenuData) => void
+  language: TranslationLanguage
+  onLanguageChange: (lang: TranslationLanguage) => void
 }
 
 type UploadState = "idle" | "preview" | "analyzing"
@@ -42,24 +42,25 @@ const ACCEPTED_TYPES = new Set([
   "image/heif",
 ])
 
-const TIPS = [
-  "Lay the menu flat with even lighting",
-  "Capture the full page or one clear section",
-  "Avoid glare and heavy shadows",
-]
-
-function validateFile(file: File): string | null {
+function validateFile(
+  file: File,
+  errors: ReturnType<typeof getTranslations>["upload"]["errors"],
+): string | null {
   if (!ACCEPTED_TYPES.has(file.type)) {
     const ext = file.name.split(".").pop()?.toUpperCase() ?? "unknown"
-    return `${ext} files aren't supported. Please use JPG, PNG, WebP, or HEIC.`
+    return errors.unsupportedFormat(ext)
   }
   if (file.size > 20 * 1024 * 1024) {
-    return "File is too large. Please use an image under 20 MB."
+    return errors.fileTooLarge
   }
   return null
 }
 
-export function MenuUploadPage({ onMenuAnalyzed }: MenuUploadPageProps) {
+export function MenuUploadPage({
+  onMenuAnalyzed,
+  language,
+  onLanguageChange,
+}: MenuUploadPageProps) {
   const [uploadState, setUploadState] = useState<UploadState>("idle")
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [imageData, setImageData] = useState<{
@@ -69,34 +70,35 @@ export function MenuUploadPage({ onMenuAnalyzed }: MenuUploadPageProps) {
   } | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [isDragging, setIsDragging] = useState(false)
-  const [language, setLanguage] = useState<TranslationLanguage>(
-    loadLanguagePreference,
-  )
   const [settingsOpen, setSettingsOpen] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const cameraInputRef = useRef<HTMLInputElement>(null)
 
+  const t = getTranslations(language)
   const currentLang = getLanguageOption(language)
 
-  const processFile = useCallback(async (file: File) => {
-    setError(null)
-    const validationError = validateFile(file)
-    if (validationError) {
-      setError(validationError)
-      return
-    }
-    try {
-      const [url, data] = await Promise.all([
-        Promise.resolve(URL.createObjectURL(file)),
-        imageToBase64(file),
-      ])
-      setPreviewUrl(url)
-      setImageData({ ...data, name: file.name })
-      setUploadState("preview")
-    } catch {
-      setError("Could not read the image. Please try another file.")
-    }
-  }, [])
+  const processFile = useCallback(
+    async (file: File) => {
+      setError(null)
+      const validationError = validateFile(file, t.upload.errors)
+      if (validationError) {
+        setError(validationError)
+        return
+      }
+      try {
+        const [url, data] = await Promise.all([
+          Promise.resolve(URL.createObjectURL(file)),
+          imageToBase64(file),
+        ])
+        setPreviewUrl(url)
+        setImageData({ ...data, name: file.name })
+        setUploadState("preview")
+      } catch {
+        setError(t.upload.errors.couldNotRead)
+      }
+    },
+    [t.upload.errors],
+  )
 
   const handleFileChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -154,13 +156,11 @@ export function MenuUploadPage({ onMenuAnalyzed }: MenuUploadPageProps) {
       onMenuAnalyzed(result)
     } catch (err) {
       const message =
-        err instanceof Error
-          ? err.message
-          : "Analysis failed. Please try again."
+        err instanceof Error ? err.message : t.upload.errors.analysisFailed
       setError(message)
       setUploadState("preview")
     }
-  }, [imageData, language, onMenuAnalyzed])
+  }, [imageData, language, onMenuAnalyzed, t.upload.errors.analysisFailed])
 
   const runDemo = useCallback(() => {
     setPreviewUrl(null)
@@ -183,7 +183,7 @@ export function MenuUploadPage({ onMenuAnalyzed }: MenuUploadPageProps) {
               className="h-auto gap-1.5 px-3 py-1 text-xs font-semibold"
             >
               <Sparkles className="size-3 text-primary" aria-hidden="true" />
-              Menu Translator
+              {t.upload.badge}
             </Badge>
 
             {/* Settings button — language selection */}
@@ -201,16 +201,16 @@ export function MenuUploadPage({ onMenuAnalyzed }: MenuUploadPageProps) {
 
           <div>
             <h1 className="text-balance text-2xl font-semibold leading-tight tracking-tight">
-              Read any menu,
+              {t.upload.headingLine1}
               <br />
-              order with confidence
+              {t.upload.headingLine2}
             </h1>
             <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-              Upload or photograph a menu. We'll translate it into{" "}
+              {t.upload.subheadingBefore}
               <span className="font-medium text-foreground">
                 {currentLang.nativeLabel}
-              </span>{" "}
-              in seconds.
+              </span>
+              {t.upload.subheadingAfter}
             </p>
           </div>
         </div>
@@ -240,7 +240,7 @@ export function MenuUploadPage({ onMenuAnalyzed }: MenuUploadPageProps) {
                     onClick={() => setError(null)}
                     className="mt-1 text-xs text-destructive/70 underline underline-offset-2 hover:text-destructive focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                   >
-                    Dismiss
+                    {t.upload.dismiss}
                   </button>
                 </div>
               </div>
@@ -293,12 +293,14 @@ export function MenuUploadPage({ onMenuAnalyzed }: MenuUploadPageProps) {
                     </div>
                     <div className="text-center">
                       <p className="text-sm font-medium">
-                        {isDragging ? "Drop to upload" : "Upload menu photo"}
+                        {isDragging
+                          ? t.upload.dropToUpload
+                          : t.upload.uploadMenuPhoto}
                       </p>
                       <p className="mt-0.5 text-xs text-muted-foreground">
                         {isDragging
-                          ? "JPG, PNG, WebP, HEIC"
-                          : "Drag & drop, or click · JPG PNG WebP HEIC · max 20 MB"}
+                          ? t.upload.fileTypesDragging
+                          : t.upload.fileTypesNormal}
                       </p>
                     </div>
                   </motion.button>
@@ -310,7 +312,7 @@ export function MenuUploadPage({ onMenuAnalyzed }: MenuUploadPageProps) {
                     onClick={() => cameraInputRef.current?.click()}
                   >
                     <Camera className="size-4" aria-hidden="true" />
-                    Take a photo
+                    {t.upload.takePhoto}
                   </Button>
                 </CardContent>
               </Card>
@@ -351,7 +353,7 @@ export function MenuUploadPage({ onMenuAnalyzed }: MenuUploadPageProps) {
                           aria-hidden="true"
                         />
                         <p className="text-sm font-semibold text-white">
-                          Translating menu…
+                          {t.upload.translatingMenu}
                         </p>
                       </div>
                     )}
@@ -373,7 +375,7 @@ export function MenuUploadPage({ onMenuAnalyzed }: MenuUploadPageProps) {
               className="space-y-2"
             >
               <p className="text-xs font-medium text-muted-foreground">
-                Extracting dishes…
+                {t.upload.extractingDishes}
               </p>
               {[100, 88, 74, 60].map((w) => (
                 <Skeleton
@@ -402,7 +404,7 @@ export function MenuUploadPage({ onMenuAnalyzed }: MenuUploadPageProps) {
                 onClick={() => void analyzeWithImage()}
               >
                 <Sparkles className="size-4" aria-hidden="true" />
-                Translate Menu
+                {t.upload.translateMenu}
               </Button>
             </motion.div>
           )}
@@ -419,10 +421,10 @@ export function MenuUploadPage({ onMenuAnalyzed }: MenuUploadPageProps) {
             <Card size="sm">
               <CardContent>
                 <p className="mb-2.5 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-                  For best results
+                  {t.upload.forBestResults}
                 </p>
                 <ul className="space-y-2">
-                  {TIPS.map((tip) => (
+                  {t.upload.tips.map((tip) => (
                     <li
                       key={tip}
                       className="flex items-start gap-2 text-sm text-muted-foreground"
@@ -444,7 +446,7 @@ export function MenuUploadPage({ onMenuAnalyzed }: MenuUploadPageProps) {
               className="h-11 w-full text-sm text-muted-foreground"
               onClick={runDemo}
             >
-              Skip — try with demo menu →
+              {t.upload.skipDemo}
             </Button>
           </motion.div>
         )}
@@ -474,7 +476,7 @@ export function MenuUploadPage({ onMenuAnalyzed }: MenuUploadPageProps) {
         open={settingsOpen}
         onOpenChange={setSettingsOpen}
         value={language}
-        onChange={setLanguage}
+        onChange={onLanguageChange}
       />
     </>
   )

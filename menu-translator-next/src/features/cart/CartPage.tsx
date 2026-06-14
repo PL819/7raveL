@@ -13,8 +13,9 @@ import {
   DrawerTitle,
   DrawerTrigger,
 } from "@/components/ui/drawer"
+import { getTranslations } from "@/lib/ui-translations"
 import { formatCurrency } from "@/lib/format-currency"
-import type { CartItem, MenuItem } from "@/types/menu"
+import type { CartItem, MenuItem, TranslationLanguage } from "@/types/menu"
 
 interface CartPageProps {
   cartItems: CartItem[]
@@ -22,6 +23,7 @@ interface CartPageProps {
   onAddToCart: (item: MenuItem) => void
   onDecrementCart: (itemId: string) => void
   onBack: () => void
+  language: TranslationLanguage
 }
 
 export function CartPage({
@@ -30,7 +32,9 @@ export function CartPage({
   onAddToCart,
   onDecrementCart,
   onBack,
+  language,
 }: CartPageProps) {
+  const t = getTranslations(language)
   const subtotal = useMemo(
     () =>
       cartItems.reduce((sum, ci) => {
@@ -53,10 +57,10 @@ export function CartPage({
       <div className="flex-1 overflow-y-auto">
         {/* Page heading */}
         <div className="px-4 pb-3 pt-5">
-          <h1 className="text-xl font-semibold">Your Order</h1>
+          <h1 className="text-xl font-semibold">{t.cart.title}</h1>
           {!isEmpty && (
             <p className="mt-0.5 text-sm text-muted-foreground">
-              {totalQty} {totalQty === 1 ? "dish" : "dishes"}
+              {totalQty} {totalQty === 1 ? t.cart.dish : t.cart.dishes}
             </p>
           )}
         </div>
@@ -71,9 +75,9 @@ export function CartPage({
               />
             </div>
             <div>
-              <p className="font-semibold">Your cart is empty</p>
+              <p className="font-semibold">{t.cart.emptyTitle}</p>
               <p className="mt-1 text-sm text-muted-foreground">
-                Add dishes from the menu to get started.
+                {t.cart.emptySubtitle}
               </p>
             </div>
             <Button
@@ -81,7 +85,7 @@ export function CartPage({
               className="h-11 px-8"
               onClick={onBack}
             >
-              Browse Menu
+              {t.cart.browseMenu}
             </Button>
           </div>
         ) : (
@@ -173,7 +177,7 @@ export function CartPage({
         <div className="shrink-0 border-t border-border/60 bg-background px-4 py-4">
           <div className="mb-3 flex items-center justify-between">
             <span className="text-sm text-muted-foreground">
-              Estimated total
+              {t.cart.estimatedTotal}
             </span>
             <span className="text-lg font-bold tabular-nums">
               {formatCurrency(subtotal, currency)}
@@ -187,18 +191,19 @@ export function CartPage({
                 className="h-12 w-full gap-2 rounded-xl text-[15px] font-semibold"
               >
                 <Users className="size-4" aria-hidden="true" />
-                Show to Waiter
+                {t.cart.showToWaiter}
               </Button>
             </DrawerTrigger>
             <DrawerContent>
               <DrawerHeader>
-                <DrawerTitle>Order Summary</DrawerTitle>
+                <DrawerTitle>{t.cart.orderSummary}</DrawerTitle>
               </DrawerHeader>
               <div className="overflow-y-auto">
                 <WaiterView
                   cartItems={cartItems}
                   currency={currency}
                   subtotal={subtotal}
+                  t={t.cart}
                 />
               </div>
             </DrawerContent>
@@ -213,9 +218,10 @@ interface WaiterViewProps {
   cartItems: CartItem[]
   currency: string
   subtotal: number
+  t: ReturnType<typeof getTranslations>["cart"]
 }
 
-function WaiterView({ cartItems, currency, subtotal }: WaiterViewProps) {
+function WaiterView({ cartItems, currency, subtotal, t }: WaiterViewProps) {
   return (
     <div className="px-6 pb-10">
       {/* Receipt header */}
@@ -224,7 +230,7 @@ function WaiterView({ cartItems, currency, subtotal }: WaiterViewProps) {
           🍜
         </span>
         <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-          Our order
+          {t.ourOrder}
         </p>
       </div>
 
@@ -260,7 +266,7 @@ function WaiterView({ cartItems, currency, subtotal }: WaiterViewProps) {
       {/* Total row */}
       <div className="mt-4 flex items-center justify-between rounded-2xl bg-muted/40 px-4 py-3.5">
         <span className="text-sm font-medium text-muted-foreground">
-          Estimated total
+          {t.estimatedTotal}
         </span>
         <span className="text-2xl font-bold tabular-nums">
           {formatCurrency(subtotal, currency)}
@@ -269,7 +275,7 @@ function WaiterView({ cartItems, currency, subtotal }: WaiterViewProps) {
 
       {/* Polite closer */}
       <p className="mt-6 text-center text-sm text-muted-foreground">
-        ありがとうございます — Thank you 🙏
+        {t.thankYou}
       </p>
     </div>
   )

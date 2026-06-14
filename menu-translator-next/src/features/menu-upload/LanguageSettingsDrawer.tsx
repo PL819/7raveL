@@ -12,6 +12,7 @@ import {
   LANGUAGE_OPTIONS,
   saveLanguagePreference,
 } from "@/lib/translation-languages"
+import { getTranslations } from "@/lib/ui-translations"
 import { cn } from "@/lib/utils"
 import type { TranslationLanguage } from "@/types/menu"
 
@@ -28,6 +29,8 @@ export function LanguageSettingsDrawer({
   value,
   onChange,
 }: LanguageSettingsDrawerProps) {
+  const t = getTranslations(value)
+
   function handleSelect(code: TranslationLanguage) {
     saveLanguagePreference(code)
     onChange(code)
@@ -38,10 +41,8 @@ export function LanguageSettingsDrawer({
     <Drawer open={open} onOpenChange={onOpenChange}>
       <DrawerContent>
         <DrawerHeader className="pb-2">
-          <DrawerTitle>Translation language</DrawerTitle>
-          <p className="text-sm text-muted-foreground">
-            Menus will be translated into your chosen language.
-          </p>
+          <DrawerTitle>{t.settings.title}</DrawerTitle>
+          <p className="text-sm text-muted-foreground">{t.settings.subtitle}</p>
         </DrawerHeader>
 
         <div className="space-y-2 px-4 pb-8 pt-2">
