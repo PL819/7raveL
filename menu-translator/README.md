@@ -1,73 +1,152 @@
-# React + TypeScript + Vite
+# Menu Translator
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Menu Translator is a mobile-first web app that helps users read restaurant menus they cannot understand.
 
-Currently, two official plugins are available:
+Core flow:
+1. Upload or take a photo of a menu.
+2. Send the image to Gemini for structured extraction + translation.
+3. Browse translated dishes by category.
+4. Build an order cart.
+5. Show a waiter-friendly order summary.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+The desktop experience intentionally renders a centered phone-style shell.
 
-## React Compiler
+## Features
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- Menu image upload via file picker, drag-and-drop, or camera input.
+- Input validation for image type (JPG, PNG, WebP, HEIC/HEIF) and max file size (20 MB).
+- AI-powered menu analysis and translation with Gemini.
+- Language preference drawer with persisted selection.
+- Category-based menu browsing.
+- Quantity-based cart and estimated subtotal.
+- Waiter-facing summary drawer for quick ordering.
+- Demo mode using local mock data (no API key required for demo flow).
 
-## Expanding the ESLint configuration
+## Tech Stack
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+- React 19 + TypeScript
+- Vite
+- Tailwind CSS v4
+- shadcn/ui + Radix + Vaul
+- Framer Motion
+- TanStack Query provider setup
+- Google GenAI SDK (`@google/genai`)
+- Zod runtime validation for Gemini response parsing
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+## Getting Started
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+### Prerequisites
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+- Node.js 18+ (Node 20+ recommended)
+- npm
+
+### 1) Install dependencies
+
+```bash
+npm install
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+### 2) Configure environment variables
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+Create `.env.local` in the project root:
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+VITE_GEMINI_API_KEY=your_api_key_here
 ```
+
+Get a Gemini API key from: https://aistudio.google.com/apikey
+
+### 3) Start development server
+
+```bash
+npm run dev
+```
+
+### 4) Build for production
+
+```bash
+npm run build
+```
+
+### 5) Preview production build
+
+```bash
+npm run preview
+```
+
+## npm Scripts
+
+- `npm run dev`: start Vite dev server.
+- `npm run build`: type-check + production build.
+- `npm run lint`: run ESLint.
+- `npm run preview`: preview the production build locally.
+
+## How Translation Works
+
+1. The selected image is converted to base64 in-browser.
+2. The app sends prompt + image bytes to Gemini (`gemini-3.5-flash`).
+3. Gemini is instructed to return strict JSON (currency, categories, items).
+4. The response is parsed and validated with Zod.
+5. The validated payload is transformed into internal `MenuData` shape with generated IDs.
+
+If Gemini returns invalid JSON or an unexpected shape, users get a friendly retry message.
+
+## Current Language Support
+
+- English (`en`)
+- Traditional Chinese (`zh-TW`)
+
+Language preference is stored in `localStorage` under `menu-translator:lang`.
+
+## Project Structure
+
+```text
+src/
+  app/
+    providers.tsx
+  features/
+    menu-upload/
+    menu-browser/
+    cart/
+  services/
+    gemini/
+  components/
+    ui/
+  lib/
+  types/
+```
+
+Architecture rule of thumb:
+- Keep API logic in `src/services`, not inside React UI components.
+- Keep shared domain types in `src/types`.
+- Keep shared utilities in `src/lib`.
+
+## Product Notes
+
+- Mobile-first interaction and touch targets.
+- Clear loading, error, and empty states.
+- Designed for tourists, travelers, and international students.
+- Supports desktop by simulating a mobile app shell in the center of the viewport.
+
+## Troubleshooting
+
+### "Gemini API key is missing"
+
+Ensure `.env.local` contains:
+
+```bash
+VITE_GEMINI_API_KEY=...
+```
+
+Then restart the dev server.
+
+### "The AI returned an unreadable response"
+
+- Retry with a clearer, well-lit photo.
+- Capture the menu flat and avoid glare.
+- Upload one section/page at a time for dense menus.
+
+### Unsupported file type or large file errors
+
+- Use JPG, PNG, WebP, or HEIC.
+- Keep image size under 20 MB.
