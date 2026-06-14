@@ -9,7 +9,9 @@ import {
   X,
 } from "lucide-react"
 
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { MOCK_MENU } from "@/lib/mock-menu"
 import type { MenuData } from "@/types/menu"
@@ -66,24 +68,27 @@ export function MenuUploadPage({ onMenuAnalyzed }: MenuUploadPageProps) {
   )
 
   return (
-    <div className="flex flex-col gap-6 px-4 pb-8 pt-6">
-      {/* Heading */}
-      <div>
-        <div className="mb-3 flex items-center gap-2">
-          <div className="rounded-xl bg-primary/10 p-1.5 text-primary">
-            <Sparkles className="size-4" aria-hidden="true" />
-          </div>
-          <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-            Menu Translator
-          </span>
+    <div className="flex flex-col gap-6 px-4 pb-10 pt-7">
+      {/* Hero heading */}
+      <div className="space-y-3">
+        <Badge
+          variant="secondary"
+          className="h-auto gap-1.5 px-3 py-1 text-xs font-semibold"
+        >
+          <Sparkles className="size-3 text-primary" aria-hidden="true" />
+          Menu Translator
+        </Badge>
+        <div>
+          <h1 className="text-balance text-2xl font-semibold leading-tight tracking-tight">
+            Read any menu,
+            <br />
+            order with confidence
+          </h1>
+          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+            Upload or photograph a menu. We'll translate it into clear English
+            in seconds.
+          </p>
         </div>
-        <h1 className="text-2xl font-semibold leading-tight tracking-tight">
-          Scan a restaurant menu
-        </h1>
-        <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
-          Upload or photograph a menu. We'll translate it into clear English in
-          seconds.
-        </p>
       </div>
 
       {/* Upload zone / preview */}
@@ -95,32 +100,37 @@ export function MenuUploadPage({ onMenuAnalyzed }: MenuUploadPageProps) {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
             transition={{ duration: 0.18 }}
-            className="space-y-3"
           >
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="flex h-44 w-full flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-border bg-muted/20 text-muted-foreground transition-all hover:border-primary/40 hover:bg-primary/5 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.99]"
-              aria-label="Upload menu photo from library"
-            >
-              <div className="rounded-xl bg-background p-3 shadow-sm">
-                <ImageUp className="size-6" aria-hidden="true" />
-              </div>
-              <div className="text-center">
-                <p className="text-sm font-medium">Upload menu photo</p>
-                <p className="mt-0.5 text-xs">JPG, PNG, WebP · up to 20 MB</p>
-              </div>
-            </button>
+            <Card className="py-0">
+              <CardContent className="space-y-2 p-3">
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="flex h-40 w-full flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed border-border bg-muted/30 text-muted-foreground transition-all hover:border-primary/40 hover:bg-primary/5 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.99]"
+                  aria-label="Upload menu photo from library"
+                >
+                  <div className="rounded-xl bg-background p-3 shadow-sm">
+                    <ImageUp className="size-6" aria-hidden="true" />
+                  </div>
+                  <div className="text-center">
+                    <p className="text-sm font-medium">Upload menu photo</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      JPG, PNG, WebP · up to 20 MB
+                    </p>
+                  </div>
+                </button>
 
-            <Button
-              type="button"
-              variant="outline"
-              className="h-12 w-full gap-2"
-              onClick={() => cameraInputRef.current?.click()}
-            >
-              <Camera className="size-4" aria-hidden="true" />
-              Take a photo
-            </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-11 w-full gap-2"
+                  onClick={() => cameraInputRef.current?.click()}
+                >
+                  <Camera className="size-4" aria-hidden="true" />
+                  Take a photo
+                </Button>
+              </CardContent>
+            </Card>
           </motion.div>
         )}
 
@@ -133,35 +143,37 @@ export function MenuUploadPage({ onMenuAnalyzed }: MenuUploadPageProps) {
               exit={{ opacity: 0, scale: 0.97 }}
               transition={{ duration: 0.18 }}
             >
-              <div className="relative overflow-hidden rounded-2xl border border-border">
-                <img
-                  src={previewUrl}
-                  alt="Selected menu"
-                  className="w-full object-cover"
-                  style={{ maxHeight: 260 }}
-                />
-                {uploadState === "preview" && (
-                  <button
-                    type="button"
-                    onClick={handleClear}
-                    className="absolute right-2 top-2 flex size-8 items-center justify-center rounded-full bg-black/55 text-white backdrop-blur-sm transition-colors hover:bg-black/75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
-                    aria-label="Remove photo"
-                  >
-                    <X className="size-4" />
-                  </button>
-                )}
-                {uploadState === "analyzing" && (
-                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/50 backdrop-blur-sm">
-                    <LoaderCircle
-                      className="size-10 animate-spin text-white"
-                      aria-hidden="true"
-                    />
-                    <p className="text-sm font-semibold text-white">
-                      Reading menu…
-                    </p>
-                  </div>
-                )}
-              </div>
+              <Card className="overflow-hidden py-0">
+                <div className="relative">
+                  <img
+                    src={previewUrl}
+                    alt="Selected menu"
+                    className="w-full object-cover"
+                    style={{ maxHeight: 240 }}
+                  />
+                  {uploadState === "preview" && (
+                    <button
+                      type="button"
+                      onClick={handleClear}
+                      className="absolute right-2 top-2 flex size-8 items-center justify-center rounded-full bg-black/55 text-white backdrop-blur-sm transition-colors hover:bg-black/75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                      aria-label="Remove photo"
+                    >
+                      <X className="size-4" />
+                    </button>
+                  )}
+                  {uploadState === "analyzing" && (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/50 backdrop-blur-sm">
+                      <LoaderCircle
+                        className="size-10 animate-spin text-white"
+                        aria-hidden="true"
+                      />
+                      <p className="text-sm font-semibold text-white">
+                        Reading menu…
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </Card>
             </motion.div>
           )}
       </AnimatePresence>
@@ -218,33 +230,39 @@ export function MenuUploadPage({ onMenuAnalyzed }: MenuUploadPageProps) {
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ delay: 0.1 }}
-          className="space-y-4"
+          transition={{ delay: 0.12 }}
+          className="space-y-3"
         >
-          <div className="rounded-2xl border border-border bg-muted/20 p-4">
-            <p className="mb-2.5 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-              For best results
-            </p>
-            <ul className="space-y-2">
-              {TIPS.map((tip) => (
-                <li key={tip} className="flex items-start gap-2 text-sm text-muted-foreground">
-                  <CheckCircle2
-                    className="mt-0.5 size-3.5 shrink-0 text-primary"
-                    aria-hidden="true"
-                  />
-                  {tip}
-                </li>
-              ))}
-            </ul>
-          </div>
+          <Card size="sm">
+            <CardContent>
+              <p className="mb-2.5 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                For best results
+              </p>
+              <ul className="space-y-2">
+                {TIPS.map((tip) => (
+                  <li
+                    key={tip}
+                    className="flex items-start gap-2 text-sm text-muted-foreground"
+                  >
+                    <CheckCircle2
+                      className="mt-0.5 size-3.5 shrink-0 text-primary"
+                      aria-hidden="true"
+                    />
+                    {tip}
+                  </li>
+                ))}
+              </ul>
+            </CardContent>
+          </Card>
 
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            className="h-11 w-full text-sm text-muted-foreground"
             onClick={() => startAnalysis(false)}
-            className="w-full text-center text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             Skip — try with demo menu →
-          </button>
+          </Button>
         </motion.div>
       )}
 

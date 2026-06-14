@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from "framer-motion"
 import { Minus, Plus, ShoppingCart } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
 import { formatCurrency } from "@/lib/format-currency"
 import { cn } from "@/lib/utils"
 import type { CartItem, MenuData, MenuItem } from "@/types/menu"
@@ -50,10 +51,10 @@ export function MenuBrowserPage({
         )}
       </div>
 
-      {/* Category tab strip */}
+      {/* Category tab strip — full 44px touch targets */}
       <div className="shrink-0 border-b border-border/50 bg-background">
         <div
-          className="flex gap-2 overflow-x-auto px-4 py-3"
+          className="flex overflow-x-auto px-4"
           style={{ scrollbarWidth: "none" }}
           role="tablist"
           aria-label="Menu categories"
@@ -65,20 +66,27 @@ export function MenuBrowserPage({
               aria-selected={activeCategoryId === cat.id}
               onClick={() => setActiveCategoryId(cat.id)}
               className={cn(
-                "flex h-8 shrink-0 items-center rounded-full px-4 text-sm font-medium transition-colors",
+                "relative flex min-h-[44px] shrink-0 items-center px-4 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
                 activeCategoryId === cat.id
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-muted text-muted-foreground hover:bg-muted/70 hover:text-foreground",
+                  ? "text-primary"
+                  : "text-muted-foreground hover:text-foreground",
               )}
             >
               {cat.name}
+              {activeCategoryId === cat.id && (
+                <motion.span
+                  layoutId="category-underline"
+                  className="absolute bottom-0 left-3 right-3 h-0.5 rounded-full bg-primary"
+                  transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                />
+              )}
             </button>
           ))}
         </div>
       </div>
 
       {/* Scrollable item list */}
-      <motion.div layout className="flex-1 overflow-y-auto px-4 py-4 pb-2">
+      <motion.div layout className="flex-1 overflow-y-auto px-4 py-3 pb-2">
         {activeCategory && (
           <AnimatePresence mode="wait">
             <motion.div
@@ -107,7 +115,7 @@ export function MenuBrowserPage({
         )}
       </motion.div>
 
-      {/* Sticky cart CTA */}
+      {/* Sticky View Order bar */}
       <AnimatePresence>
         {totalCartQty > 0 && (
           <motion.div
@@ -115,7 +123,7 @@ export function MenuBrowserPage({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 16 }}
             transition={{ duration: 0.22, ease: "easeOut" }}
-            className="shrink-0 border-t border-border/50 bg-background/90 px-4 py-3 backdrop-blur-md"
+            className="shrink-0 border-t border-border/50 bg-background/95 px-4 py-3 backdrop-blur-md"
           >
             <Button
               type="button"
@@ -153,85 +161,89 @@ function MenuItemCard({
   const inCart = quantity > 0
 
   return (
-    <div
+    <Card
       className={cn(
-        "rounded-xl border bg-card px-4 py-3 transition-colors duration-150",
-        inCart && "border-primary/30 bg-primary/[0.03]",
+        "py-0 transition-colors duration-150",
+        inCart && "ring-primary/30 bg-primary/[0.03]",
       )}
     >
-      <div className="flex items-start gap-3">
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold leading-snug">{item.englishName}</p>
-          <p className="text-xs text-muted-foreground">{item.originalName}</p>
-          {item.description && (
-            <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-              {item.description}
+      <CardContent className="px-4 py-3">
+        <div className="flex items-start gap-3">
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold leading-snug">
+              {item.englishName}
             </p>
-          )}
-          {item.price !== null && (
-            <p className="mt-2 text-sm font-bold text-primary">
-              {formatCurrency(item.price, currency)}
-            </p>
-          )}
-        </div>
+            <p className="text-xs text-muted-foreground">{item.originalName}</p>
+            {item.description && (
+              <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                {item.description}
+              </p>
+            )}
+            {item.price !== null && (
+              <p className="mt-2 text-sm font-bold text-primary">
+                {formatCurrency(item.price, currency)}
+              </p>
+            )}
+          </div>
 
-        {/* Quantity controls */}
-        <div className="flex shrink-0 items-center gap-2">
-          {quantity === 0 ? (
-            <motion.div whileTap={{ scale: 0.92 }}>
-              <Button
-                type="button"
-                size="icon"
-                className="size-9 rounded-full"
-                onClick={onAdd}
-                aria-label={`Add ${item.englishName} to order`}
-              >
-                <Plus className="size-4" aria-hidden="true" />
-              </Button>
-            </motion.div>
-          ) : (
-            <div className="flex items-center gap-2">
-              <motion.div whileTap={{ scale: 0.92 }}>
+          {/* Quantity controls — 44px touch targets */}
+          <div className="flex shrink-0 items-center gap-2">
+            {quantity === 0 ? (
+              <motion.div whileTap={{ scale: 0.93 }}>
                 <Button
                   type="button"
                   size="icon"
-                  variant="outline"
-                  className="size-9 rounded-full"
-                  onClick={onRemove}
-                  aria-label={`Remove one ${item.englishName} from order`}
-                >
-                  <Minus className="size-4" aria-hidden="true" />
-                </Button>
-              </motion.div>
-
-              <AnimatePresence mode="wait">
-                <motion.span
-                  key={quantity}
-                  initial={{ opacity: 0, scale: 0.6 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.6 }}
-                  transition={{ duration: 0.12 }}
-                  className="w-6 text-center text-sm font-bold tabular-nums"
-                >
-                  {quantity}
-                </motion.span>
-              </AnimatePresence>
-
-              <motion.div whileTap={{ scale: 0.92 }}>
-                <Button
-                  type="button"
-                  size="icon"
-                  className="size-9 rounded-full"
+                  className="size-11 rounded-full"
                   onClick={onAdd}
-                  aria-label={`Add another ${item.englishName} to order`}
+                  aria-label={`Add ${item.englishName} to order`}
                 >
                   <Plus className="size-4" aria-hidden="true" />
                 </Button>
               </motion.div>
-            </div>
-          )}
+            ) : (
+              <div className="flex items-center gap-1.5">
+                <motion.div whileTap={{ scale: 0.93 }}>
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="outline"
+                    className="size-11 rounded-full"
+                    onClick={onRemove}
+                    aria-label={`Remove one ${item.englishName} from order`}
+                  >
+                    <Minus className="size-4" aria-hidden="true" />
+                  </Button>
+                </motion.div>
+
+                <AnimatePresence mode="wait">
+                  <motion.span
+                    key={quantity}
+                    initial={{ opacity: 0, scale: 0.6 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.6 }}
+                    transition={{ duration: 0.12 }}
+                    className="w-7 text-center text-sm font-bold tabular-nums"
+                  >
+                    {quantity}
+                  </motion.span>
+                </AnimatePresence>
+
+                <motion.div whileTap={{ scale: 0.93 }}>
+                  <Button
+                    type="button"
+                    size="icon"
+                    className="size-11 rounded-full"
+                    onClick={onAdd}
+                    aria-label={`Add another ${item.englishName} to order`}
+                  >
+                    <Plus className="size-4" aria-hidden="true" />
+                  </Button>
+                </motion.div>
+              </div>
+            )}
+          </div>
         </div>
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   )
 }
