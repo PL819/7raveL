@@ -205,7 +205,7 @@ export async function POST(request: NextRequest) {
           role: "user",
           content: [
             { type: "text", text: "Analyze this menu image." },
-            { type: "image", image: base64 },
+            { type: "image", image: `data:${mimeType};base64,${base64}` },
           ],
         },
       ],
