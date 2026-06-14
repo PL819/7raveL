@@ -1,11 +1,13 @@
 export type ViewState = "upload" | "menu" | "cart"
 
+export type TranslationLanguage = "en" | "zh-TW"
+
 export type MenuAnalysisStatus = "idle" | "loading" | "success" | "error"
 
 export interface MenuItem {
   id: string
   originalName: string
-  englishName: string
+  translatedName: string
   price: number | null
   description?: string
   categoryId: string

@@ -171,7 +171,7 @@ function MenuItemCard({
         <div className="flex items-start gap-3">
           <div className="min-w-0 flex-1">
             <p className="text-sm font-semibold leading-snug">
-              {item.englishName}
+              {item.translatedName}
             </p>
             <p className="text-xs text-muted-foreground">{item.originalName}</p>
             {item.description && (
@@ -195,7 +195,7 @@ function MenuItemCard({
                   size="icon"
                   className="size-11 rounded-full"
                   onClick={onAdd}
-                  aria-label={`Add ${item.englishName} to order`}
+                  aria-label={`Add ${item.translatedName} to order`}
                 >
                   <Plus className="size-4" aria-hidden="true" />
                 </Button>
@@ -209,7 +209,7 @@ function MenuItemCard({
                     variant="outline"
                     className="size-11 rounded-full"
                     onClick={onRemove}
-                    aria-label={`Remove one ${item.englishName} from order`}
+                    aria-label={`Remove one ${item.translatedName} from order`}
                   >
                     <Minus className="size-4" aria-hidden="true" />
                   </Button>
@@ -234,7 +234,7 @@ function MenuItemCard({
                     size="icon"
                     className="size-11 rounded-full"
                     onClick={onAdd}
-                    aria-label={`Add another ${item.englishName} to order`}
+                    aria-label={`Add another ${item.translatedName} to order`}
                   >
                     <Plus className="size-4" aria-hidden="true" />
                   </Button>

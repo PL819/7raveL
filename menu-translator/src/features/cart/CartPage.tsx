@@ -99,7 +99,7 @@ export function CartPage({
                       <div className="flex items-center gap-3">
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-sm font-semibold">
-                            {ci.item.englishName}
+                            {ci.item.translatedName}
                           </p>
                           <p className="text-xs text-muted-foreground">
                             {ci.item.originalName}
@@ -115,7 +115,7 @@ export function CartPage({
                               variant="outline"
                               className="size-11 rounded-full"
                               onClick={() => onDecrementCart(ci.item.id)}
-                              aria-label={`Remove one ${ci.item.englishName}`}
+                              aria-label={`Remove one ${ci.item.translatedName}`}
                             >
                               <Minus className="size-3.5" aria-hidden="true" />
                             </Button>
@@ -140,7 +140,7 @@ export function CartPage({
                               size="icon"
                               className="size-11 rounded-full"
                               onClick={() => onAddToCart(ci.item)}
-                              aria-label={`Add another ${ci.item.englishName}`}
+                              aria-label={`Add another ${ci.item.translatedName}`}
                             >
                               <Plus className="size-3.5" aria-hidden="true" />
                             </Button>
@@ -233,7 +233,7 @@ function WaiterView({ cartItems, currency, subtotal }: WaiterViewProps) {
             <div className="flex items-start justify-between gap-4 py-4">
               <div className="min-w-0 flex-1">
                 <p className="text-lg font-semibold leading-snug">
-                  {ci.item.englishName}
+                  {ci.item.translatedName}
                 </p>
                 <p className="mt-0.5 text-base text-muted-foreground">
                   {ci.item.originalName}

@@ -13,7 +13,7 @@ export const MOCK_MENU: MenuData = {
         {
           id: "edamame",
           originalName: "枝豆",
-          englishName: "Steamed Edamame",
+          translatedName: "Steamed Edamame",
           price: 380,
           description: "Salted young soybeans, lightly seasoned",
           categoryId: "starters",
@@ -21,7 +21,7 @@ export const MOCK_MENU: MenuData = {
         {
           id: "agedashi-tofu",
           originalName: "揚げ出し豆腐",
-          englishName: "Agedashi Tofu",
+          translatedName: "Agedashi Tofu",
           price: 550,
           description: "Deep-fried silken tofu in dashi broth with grated daikon",
           categoryId: "starters",
@@ -29,7 +29,7 @@ export const MOCK_MENU: MenuData = {
         {
           id: "gyoza",
           originalName: "餃子",
-          englishName: "Pan-Fried Gyoza",
+          translatedName: "Pan-Fried Gyoza",
           price: 680,
           description: "Crispy pork dumplings with soy-vinegar dipping sauce (6 pcs)",
           categoryId: "starters",
@@ -37,7 +37,7 @@ export const MOCK_MENU: MenuData = {
         {
           id: "karaage",
           originalName: "唐揚げ",
-          englishName: "Chicken Karaage",
+          translatedName: "Chicken Karaage",
           price: 750,
           description: "Juicy fried chicken thigh with lemon and Japanese mayo",
           categoryId: "starters",
@@ -51,7 +51,7 @@ export const MOCK_MENU: MenuData = {
         {
           id: "miso-ramen",
           originalName: "味噌ラーメン",
-          englishName: "Miso Ramen",
+          translatedName: "Miso Ramen",
           price: 1280,
           description: "Rich pork miso broth, chashu pork, spring onion, soft egg",
           categoryId: "mains",
@@ -59,7 +59,7 @@ export const MOCK_MENU: MenuData = {
         {
           id: "tonkotsu-ramen",
           originalName: "豚骨ラーメン",
-          englishName: "Tonkotsu Ramen",
+          translatedName: "Tonkotsu Ramen",
           price: 1380,
           description: "Creamy pork bone broth, bamboo shoots, nori, menma",
           categoryId: "mains",
@@ -67,7 +67,7 @@ export const MOCK_MENU: MenuData = {
         {
           id: "katsu-curry",
           originalName: "カツカレー",
-          englishName: "Pork Katsu Curry",
+          translatedName: "Pork Katsu Curry",
           price: 1480,
           description: "Panko-breaded pork cutlet on Japanese curry with steamed rice",
           categoryId: "mains",
@@ -75,7 +75,7 @@ export const MOCK_MENU: MenuData = {
         {
           id: "yakisoba",
           originalName: "焼きそば",
-          englishName: "Yakisoba Noodles",
+          translatedName: "Yakisoba Noodles",
           price: 980,
           description: "Stir-fried wheat noodles with pork, cabbage and pickled ginger",
           categoryId: "mains",
@@ -89,7 +89,7 @@ export const MOCK_MENU: MenuData = {
         {
           id: "chicken-thigh",
           originalName: "もも焼き鳥",
-          englishName: "Chicken Thigh Yakitori",
+          translatedName: "Chicken Thigh Yakitori",
           price: 320,
           description: "Grilled chicken thigh with sweet tare glaze (2 skewers)",
           categoryId: "skewers",
@@ -97,7 +97,7 @@ export const MOCK_MENU: MenuData = {
         {
           id: "tsukune",
           originalName: "つくね",
-          englishName: "Chicken Meatball Skewer",
+          translatedName: "Chicken Meatball Skewer",
           price: 350,
           description: "Minced chicken ball, sweet soy glaze, runny egg dip",
           categoryId: "skewers",
@@ -105,7 +105,7 @@ export const MOCK_MENU: MenuData = {
         {
           id: "pork-belly",
           originalName: "豚バラ焼き鳥",
-          englishName: "Pork Belly Yakitori",
+          translatedName: "Pork Belly Yakitori",
           price: 330,
           description: "Grilled pork belly strips with spring onion (2 skewers)",
           categoryId: "skewers",
@@ -113,7 +113,7 @@ export const MOCK_MENU: MenuData = {
         {
           id: "asparagus-bacon",
           originalName: "アスパラベーコン",
-          englishName: "Asparagus & Bacon Roll",
+          translatedName: "Asparagus & Bacon Roll",
           price: 340,
           description: "Crispy bacon wrapped around fresh asparagus spears",
           categoryId: "skewers",
@@ -127,7 +127,7 @@ export const MOCK_MENU: MenuData = {
         {
           id: "draft-beer",
           originalName: "生ビール",
-          englishName: "Draft Beer",
+          translatedName: "Draft Beer",
           price: 580,
           description: "Sapporo Premium, medium glass",
           categoryId: "drinks",
@@ -135,7 +135,7 @@ export const MOCK_MENU: MenuData = {
         {
           id: "yuzu-sour",
           originalName: "ゆずサワー",
-          englishName: "Yuzu Sour Cocktail",
+          translatedName: "Yuzu Sour Cocktail",
           price: 520,
           description: "Yuzu citrus, shochu base, sparkling soda",
           categoryId: "drinks",
@@ -143,7 +143,7 @@ export const MOCK_MENU: MenuData = {
         {
           id: "hot-sake",
           originalName: "熱燗",
-          englishName: "Hot Sake",
+          translatedName: "Hot Sake",
           price: 480,
           description: "House sake served warm in a ceramic tokkuri",
           categoryId: "drinks",
@@ -151,7 +151,7 @@ export const MOCK_MENU: MenuData = {
         {
           id: "green-tea",
           originalName: "緑茶",
-          englishName: "Japanese Green Tea",
+          translatedName: "Japanese Green Tea",
           price: 250,
           description: "Hot or iced, free refills",
           categoryId: "drinks",
