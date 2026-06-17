@@ -35,6 +35,7 @@ interface MenuUploadPageProps {
 type UploadState = "idle" | "preview" | "analyzing"
 
 const ACCEPTED_TYPES = new Set([
+  "image/jpg",
   "image/jpeg",
   "image/png",
   "image/webp",
