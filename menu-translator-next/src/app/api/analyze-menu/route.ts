@@ -7,7 +7,7 @@ import { z } from "zod"
 // Types
 // ---------------------------------------------------------------------------
 
-type TranslationLanguage = "en" | "zh-TW"
+type TranslationLanguage = "en" | "zh-TW" | "fa"
 
 interface LanguageOption {
   code: TranslationLanguage
@@ -18,6 +18,7 @@ interface LanguageOption {
 const LANGUAGE_OPTIONS: LanguageOption[] = [
   { code: "en", label: "English", nativeLabel: "English" },
   { code: "zh-TW", label: "Traditional Chinese", nativeLabel: "繁體中文" },
+  { code: "fa", label: "Persian", nativeLabel: "فارسی" },
 ]
 
 function getLanguageOption(code: TranslationLanguage): LanguageOption {
@@ -32,7 +33,7 @@ const RequestBodySchema = z.object({
   base64: z.string().min(1),
   mimeType: z.string().min(1),
   sourceImageName: z.string().optional(),
-  targetLanguage: z.enum(["en", "zh-TW"]).optional(),
+  targetLanguage: z.enum(["en", "zh-TW", "fa"]).optional(),
 })
 
 // ---------------------------------------------------------------------------

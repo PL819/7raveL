@@ -20,16 +20,22 @@ export const LANGUAGE_OPTIONS: LanguageOption[] = [
     nativeLabel: "繁體中文",
     flag: "🇭🇰",
   },
+  {
+    code: "fa",
+    label: "Persian",
+    nativeLabel: "فارسی",
+    flag: "🇮🇷",
+  },
 ]
 
-export const DEFAULT_LANGUAGE: TranslationLanguage = "zh-TW"
+export const DEFAULT_LANGUAGE: TranslationLanguage = "en"
 
 const STORAGE_KEY = "menu-translator:lang"
 
 export function loadLanguagePreference(): TranslationLanguage {
   try {
     const stored = localStorage.getItem(STORAGE_KEY)
-    if (stored === "en" || stored === "zh-TW") return stored
+    if (stored === "en" || stored === "zh-TW" || stored === "fa") return stored
   } catch {
     // localStorage unavailable (private browsing, SSR, etc.)
   }

@@ -1,6 +1,6 @@
 export type ViewState = "upload" | "menu" | "cart"
 
-export type TranslationLanguage = "en" | "zh-TW"
+export type TranslationLanguage = "en" | "zh-TW" | "fa"
 
 export type MenuAnalysisStatus = "idle" | "loading" | "success" | "error"
 

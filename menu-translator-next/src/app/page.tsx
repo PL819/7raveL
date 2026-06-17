@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { AnimatePresence, motion } from "framer-motion"
 import { Camera, ShoppingCart, UtensilsCrossed } from "lucide-react"
 
@@ -27,9 +27,11 @@ export default function HomePage() {
   const [view, setView] = useState<ViewState>("upload")
   const [menuData, setMenuData] = useState<MenuData | null>(null)
   const [cartItems, setCartItems] = useState<CartItem[]>([])
-  const [language, setLanguage] = useState<TranslationLanguage>(
-    loadLanguagePreference,
-  )
+  const [language, setLanguage] = useState<TranslationLanguage>("en")
+
+  useEffect(() => {
+    setLanguage(loadLanguagePreference())
+  }, [])
 
   const t = getTranslations(language)
 

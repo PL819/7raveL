@@ -117,6 +117,67 @@ const en: UITranslations = {
   },
 }
 
+const fa: UITranslations = {
+  nav: {
+    scan: "اسکن",
+    menu: "منو",
+    cart: "سفارش",
+  },
+  upload: {
+    badge: "مترجم منو",
+    headingLine1: "هر منویی را بخوانید،",
+    headingLine2: "با اطمینان سفارش دهید",
+    subheadingBefore: "منو را بارگذاری کنید یا از آن عکس بگیرید. ما آن را در چند ثانیه به ",
+    subheadingAfter: " ترجمه می‌کنیم.",
+    dismiss: "بستن",
+    dropToUpload: "برای بارگذاری رها کنید",
+    uploadMenuPhoto: "بارگذاری عکس منو",
+    fileTypesDragging: "JPG، PNG، WebP، HEIC",
+    fileTypesNormal: "بکشید و رها کنید یا کلیک کنید · JPG PNG WebP HEIC · حداکثر ۲۰ مگابایت",
+    takePhoto: "عکس بگیرید",
+    translatingMenu: "در حال ترجمه منو…",
+    extractingDishes: "در حال استخراج غذاها…",
+    translateMenu: "ترجمه منو",
+    forBestResults: "برای بهترین نتیجه",
+    tips: [
+      "منو را روی سطح صاف و با نور مناسب قرار دهید",
+      "از کل صفحه یا یک بخش واضح عکس بگیرید",
+      "از بازتاب نور و سایه‌های شدید جلوگیری کنید",
+    ],
+    skipDemo: "رد شدن — منوی نمونه را امتحان کنید ←",
+    errors: {
+      unsupportedFormat: (ext) =>
+        `فایل‌های ${ext} پشتیبانی نمی‌شوند. لطفاً از JPG، PNG، WebP یا HEIC استفاده کنید.`,
+      fileTooLarge: "فایل بیش از حد بزرگ است. لطفاً تصویری کمتر از ۲۰ مگابایت انتخاب کنید.",
+      couldNotRead: "خواندن تصویر ممکن نبود. لطفاً فایل دیگری را امتحان کنید.",
+      analysisFailed: "تحلیل ناموفق بود. لطفاً دوباره تلاش کنید.",
+    },
+  },
+  browser: {
+    title: "منوی ترجمه‌شده",
+    viewOrder: "مشاهده سفارش",
+    item: "مورد",
+    items: "مورد",
+  },
+  cart: {
+    title: "سفارش شما",
+    dish: "غذا",
+    dishes: "غذا",
+    emptyTitle: "سبد سفارش شما خالی است",
+    emptySubtitle: "برای شروع، غذاهایی را از منو اضافه کنید.",
+    browseMenu: "مشاهده منو",
+    estimatedTotal: "مجموع تقریبی",
+    showToWaiter: "نمایش به گارسون",
+    orderSummary: "خلاصه سفارش",
+    ourOrder: "سفارش ما",
+    thankYou: "متشکریم 🙏",
+  },
+  settings: {
+    title: "زبان ترجمه",
+    subtitle: "منوها به زبان انتخابی شما ترجمه خواهند شد.",
+  },
+}
+
 const zhTW: UITranslations = {
   nav: {
     scan: "影啦",
@@ -181,6 +242,7 @@ const zhTW: UITranslations = {
 export const TRANSLATIONS: Record<TranslationLanguage, UITranslations> = {
   en,
   "zh-TW": zhTW,
+  fa
 }
 
 export function getTranslations(lang: TranslationLanguage): UITranslations {
