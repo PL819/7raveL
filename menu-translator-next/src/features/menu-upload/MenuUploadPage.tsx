@@ -12,6 +12,7 @@ import {
   X,
 } from "lucide-react"
 
+import imageCompression from "browser-image-compression"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -87,10 +88,21 @@ export function MenuUploadPage({
         return
       }
       try {
+        console.log(
+          `Original: ${(file.size / 1024 / 1024).toFixed(2)} MB`
+        )
+        
+        const compressedFile = await imageCompression(file, { maxSizeMB: 2, maxWidthOrHeight: 1600, useWebWorker: true, })
+        
+        console.log(
+          `Compressed: ${(compressedFile.size / 1024 / 1024).toFixed(2)} MB`
+        )
+
         const [url, data] = await Promise.all([
-          Promise.resolve(URL.createObjectURL(file)),
-          imageToBase64(file),
+          Promise.resolve(URL.createObjectURL(compressedFile)),
+          imageToBase64(compressedFile),
         ])
+
         setPreviewUrl(url)
         setImageData({ ...data, name: file.name })
         setUploadState("preview")
