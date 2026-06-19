@@ -239,10 +239,205 @@ const zhTW: UITranslations = {
   },
 }
 
+const ru: UITranslations = {
+  nav: {
+    scan: "Сканировать",
+    menu: "Меню",
+    cart: "Корзина",
+  },
+  upload: {
+    badge: "Переводчик меню",
+    headingLine1: "Читайте любое меню,",
+    headingLine2: "заказывайте уверенно",
+    subheadingBefore: "Загрузите меню или сфотографируйте его. Мы переведём его на ",
+    subheadingAfter: " за несколько секунд.",
+    dismiss: "Закрыть",
+    dropToUpload: "Отпустите, чтобы загрузить",
+    uploadMenuPhoto: "Загрузить фото меню",
+    fileTypesDragging: "JPG, PNG, WebP, HEIC",
+    fileTypesNormal:
+      "Перетащите файл сюда или нажмите · JPG PNG WebP HEIC · максимум 20 МБ",
+    takePhoto: "Сделать фото",
+    translatingMenu: "Переводим меню…",
+    extractingDishes: "Извлекаем блюда…",
+    translateMenu: "Перевести меню",
+    forBestResults: "Для лучших результатов",
+    tips: [
+      "Положите меню ровно при равномерном освещении",
+      "Снимите всю страницу или один чёткий раздел",
+      "Избегайте бликов и глубоких теней",
+    ],
+    skipDemo: "Пропустить — попробовать демо-меню →",
+    errors: {
+      unsupportedFormat: (ext) =>
+        `${ext} не поддерживается. Используйте JPG, PNG, WebP или HEIC.`,
+      fileTooLarge: "Файл слишком большой. Используйте изображение до 20 МБ.",
+      couldNotRead: "Не удалось прочитать изображение. Попробуйте другой файл.",
+      analysisFailed: "Анализ не удался. Попробуйте ещё раз.",
+    },
+  },
+  browser: {
+    title: "Переведённое меню",
+    viewOrder: "Посмотреть заказ",
+    item: "позиция",
+    items: "позиций",
+  },
+  cart: {
+    title: "Ваш заказ",
+    dish: "блюдо",
+    dishes: "блюд",
+    emptyTitle: "Ваша корзина пуста",
+    emptySubtitle: "Добавьте блюда из меню, чтобы начать.",
+    browseMenu: "Просмотреть меню",
+    estimatedTotal: "Примерная сумма",
+    showToWaiter: "Показать официанту",
+    orderSummary: "Сводка заказа",
+    ourOrder: "Наш заказ",
+    thankYou: "Спасибо 🙏",
+  },
+  settings: {
+    title: "Язык перевода",
+    subtitle: "Меню будут переводиться на выбранный вами язык.",
+  },
+}
+
+const si: UITranslations = {
+  nav: {
+    scan: "ස්කෑන් කරන්න",
+    menu: "මෙනුව",
+    cart: "කූඩය",
+  },
+  upload: {
+    badge: "මෙනු පරිවර්තකය",
+    headingLine1: "ඕනෑම මෙනුවක් කියවන්න,",
+    headingLine2: "විශ්වාසයෙන් ඇණවුම් කරන්න",
+    subheadingBefore:
+      "මෙනුවක් උඩුගත කරන්න හෝ ඡායාරූපගත කරන්න. අපි එය තත්පර කිහිපයකින් ",
+    subheadingAfter: " භාෂාවට පරිවර්තනය කරන්නෙමු.",
+    dismiss: "වසා දමන්න",
+    dropToUpload: "උඩුගත කිරීමට අතහරින්න",
+    uploadMenuPhoto: "මෙනු ඡායාරූපයක් උඩුගත කරන්න",
+    fileTypesDragging: "JPG, PNG, WebP, HEIC",
+    fileTypesNormal:
+      "ඇද දමන්න, නැතහොත් ක්ලික් කරන්න · JPG PNG WebP HEIC · උපරිම 20 MB",
+    takePhoto: "ඡායාරූපයක් ගන්න",
+    translatingMenu: "මෙනුව පරිවර්තනය වෙමින්…",
+    extractingDishes: "කෑම වර්ග හඳුනා ගනිමින්…",
+    translateMenu: "මෙනුව පරිවර්තනය කරන්න",
+    forBestResults: "හොඳම ප්‍රතිඵල සඳහා",
+    tips: [
+      "මෙනුව සමතලව තබා සමාන ආලෝකයක් ලබා දෙන්න",
+      "සම්පූර්ණ පිටුව හෝ පැහැදිලි කොටසක් ගන්න",
+      "දිලිසීම සහ තද සෙවණැලි වලින් වළකින්න",
+    ],
+    skipDemo: "මඟහරින්න — නිරූපණ මෙනුවෙන් උත්සාහ කරන්න →",
+    errors: {
+      unsupportedFormat: (ext) =>
+        `${ext} ගොනු සඳහා සහය නොදක්වයි. කරුණාකර JPG, PNG, WebP, හෝ HEIC භාවිත කරන්න.`,
+      fileTooLarge:
+        "ගොනුව විශාල වැඩිය. කරුණාකර 20 MB ට අඩු රූපයක් භාවිත කරන්න.",
+      couldNotRead:
+        "රූපය කියවිය නොහැකි විය. කරුණාකර වෙනත් ගොනුවක් උත්සාහ කරන්න.",
+      analysisFailed: "විශ්ලේෂණය අසාර්ථක විය. කරුණාකර නැවත උත්සාහ කරන්න.",
+    },
+  },
+  browser: {
+    title: "පරිවර්තිත මෙනුව",
+    viewOrder: "ඇණවුම බලන්න",
+    item: "අයිතමය",
+    items: "අයිතම",
+  },
+  cart: {
+    title: "ඔබගේ ඇණවුම",
+    dish: "කෑම වර්ගය",
+    dishes: "කෑම වර්ග",
+    emptyTitle: "ඔබගේ කූඩය හිස්",
+    emptySubtitle: "ආරම්භ කිරීමට මෙනුවෙන් කෑම වර්ග එකතු කරන්න.",
+    browseMenu: "මෙනුව බලන්න",
+    estimatedTotal: "ඇස්තමේන්තු මුළු එකතුව",
+    showToWaiter: "වේටර්වරයාට පෙන්වන්න",
+    orderSummary: "ඇණවුම් සාරාංශය",
+    ourOrder: "අපගේ ඇණවුම",
+    thankYou: "ස්තුතියි 🙏",
+  },
+  settings: {
+    title: "පරිවර්තන භාෂාව",
+    subtitle: "මෙනු ඔබ තෝරාගත් භාෂාවට පරිවර්තනය කරනු ලැබේ.",
+  },
+}
+
+const hi: UITranslations = {
+  nav: {
+    scan: "स्कैन करें",
+    menu: "मेनू",
+    cart: "कार्ट",
+  },
+  upload: {
+    badge: "मेनू अनुवादक",
+    headingLine1: "कोई भी मेनू पढ़ें,",
+    headingLine2: "आत्मविश्वास से ऑर्डर करें",
+    subheadingBefore:
+      "मेनू अपलोड करें या उसकी फ़ोटो लें। हम इसे कुछ सेकंड में ",
+    subheadingAfter: " में अनुवाद कर देंगे।",
+    dismiss: "बंद करें",
+    dropToUpload: "अपलोड करने के लिए छोड़ें",
+    uploadMenuPhoto: "मेनू की फ़ोटो अपलोड करें",
+    fileTypesDragging: "JPG, PNG, WebP, HEIC",
+    fileTypesNormal:
+      "खींचकर छोड़ें, या क्लिक करें · JPG PNG WebP HEIC · अधिकतम 20 MB",
+    takePhoto: "फ़ोटो लें",
+    translatingMenu: "मेनू का अनुवाद हो रहा है…",
+    extractingDishes: "व्यंजन निकाले जा रहे हैं…",
+    translateMenu: "मेनू का अनुवाद करें",
+    forBestResults: "बेहतर परिणामों के लिए",
+    tips: [
+      "मेनू को सपाट रखें और रोशनी बराबर रखें",
+      "पूरा पेज या एक साफ़ सेक्शन कैप्चर करें",
+      "चमक और गहरी छाया से बचें",
+    ],
+    skipDemo: "छोड़ें — डेमो मेनू से आज़माएँ →",
+    errors: {
+      unsupportedFormat: (ext) =>
+        `${ext} फ़ाइलें समर्थित नहीं हैं। कृपया JPG, PNG, WebP, या HEIC का उपयोग करें।`,
+      fileTooLarge:
+        "फ़ाइल बहुत बड़ी है। कृपया 20 MB से छोटी छवि का उपयोग करें।",
+      couldNotRead:
+        "छवि पढ़ी नहीं जा सकी। कृपया कोई दूसरी फ़ाइल आज़माएँ।",
+      analysisFailed: "विश्लेषण विफल रहा। कृपया फिर से कोशिश करें।",
+    },
+  },
+  browser: {
+    title: "अनुवादित मेनू",
+    viewOrder: "ऑर्डर देखें",
+    item: "आइटम",
+    items: "आइटम",
+  },
+  cart: {
+    title: "आपका ऑर्डर",
+    dish: "व्यंजन",
+    dishes: "व्यंजन",
+    emptyTitle: "आपका कार्ट खाली है",
+    emptySubtitle: "शुरू करने के लिए मेनू से व्यंजन जोड़ें।",
+    browseMenu: "मेनू देखें",
+    estimatedTotal: "अनुमानित कुल",
+    showToWaiter: "वेटर को दिखाएँ",
+    orderSummary: "ऑर्डर सारांश",
+    ourOrder: "हमारा ऑर्डर",
+    thankYou: "धन्यवाद 🙏",
+  },
+  settings: {
+    title: "अनुवाद की भाषा",
+    subtitle: "मेनू आपकी चुनी हुई भाषा में अनुवादित किए जाएँगे।",
+  },
+}
+
 export const TRANSLATIONS: Record<TranslationLanguage, UITranslations> = {
   en,
   "zh-TW": zhTW,
-  fa
+  fa,
+  ru,
+  si,
+  hi
 }
 
 export function getTranslations(lang: TranslationLanguage): UITranslations {
