@@ -29,6 +29,7 @@ export interface MenuCategory {
 export interface MenuData {
   id: string;
   sourceImageName?: string;
+  sourceImageNames?: string[];
   currency: string;
   categories: MenuCategory[];
   createdAt: string;

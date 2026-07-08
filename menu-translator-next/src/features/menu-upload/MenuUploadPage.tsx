@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { AnimatePresence, motion } from "framer-motion"
 import {
   AlertCircle,
@@ -11,18 +11,20 @@ import {
   Sparkles,
   X,
 } from "lucide-react"
+import Image from "next/image"
 
 import imageCompression from "browser-image-compression"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
+import { generateId } from "@/lib/generate-id"
 import { imageToBase64 } from "@/lib/image-to-base64"
 import { MOCK_MENU } from "@/lib/mock-menu"
 import { getTranslations } from "@/lib/ui-translations"
 import { getLanguageOption } from "@/lib/translation-languages"
 import { cn } from "@/lib/utils"
-import { analyzeMenuImage } from "@/services/analyze-menu"
+import { analyzeMenuImages } from "@/services/analyze-menu"
 import type { MenuData, TranslationLanguage } from "@/types/menu"
 
 import { LanguageSettingsDrawer } from "./LanguageSettingsDrawer"
@@ -35,6 +37,14 @@ interface MenuUploadPageProps {
 
 type UploadState = "idle" | "preview" | "analyzing"
 
+interface SelectedImage {
+  id: string
+  previewUrl: string
+  base64: string
+  mimeType: string
+  name: string
+}
+
 const ACCEPTED_TYPES = new Set([
   "image/jpg",
   "image/jpeg",
@@ -43,6 +53,7 @@ const ACCEPTED_TYPES = new Set([
   "image/heic",
   "image/heif",
 ])
+const MAX_UPLOAD_FILES = 5
 
 function validateFile(
   file: File,
@@ -64,63 +75,109 @@ export function MenuUploadPage({
   onLanguageChange,
 }: MenuUploadPageProps) {
   const [uploadState, setUploadState] = useState<UploadState>("idle")
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
-  const [imageData, setImageData] = useState<{
-    base64: string
-    mimeType: string
-    name: string
-  } | null>(null)
+  const [selectedImages, setSelectedImages] = useState<SelectedImage[]>([])
   const [error, setError] = useState<string | null>(null)
   const [isDragging, setIsDragging] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const cameraInputRef = useRef<HTMLInputElement>(null)
+  const selectedImagesRef = useRef<SelectedImage[]>([])
 
   const t = getTranslations(language)
   const currentLang = getLanguageOption(language)
 
-  const processFile = useCallback(
-    async (file: File) => {
+  useEffect(() => {
+    selectedImagesRef.current = selectedImages
+  }, [selectedImages])
+
+  useEffect(() => {
+    return () => {
+      selectedImagesRef.current.forEach((image) => {
+        URL.revokeObjectURL(image.previewUrl)
+      })
+    }
+  }, [])
+
+  const resetInputs = useCallback(() => {
+    if (fileInputRef.current) fileInputRef.current.value = ""
+    if (cameraInputRef.current) cameraInputRef.current.value = ""
+  }, [])
+
+  const replaceSelectedImages = useCallback((nextImages: SelectedImage[]) => {
+    setSelectedImages((currentImages) => {
+      currentImages.forEach((image) => URL.revokeObjectURL(image.previewUrl))
+      return nextImages
+    })
+  }, [])
+
+  const processFiles = useCallback(
+    async (files: FileList | File[], source: "upload" | "camera") => {
       setError(null)
-      const validationError = validateFile(file, t.upload.errors)
-      if (validationError) {
-        setError(validationError)
+      const fileList = Array.from(files)
+      const nextFiles = source === "camera" ? fileList.slice(0, 1) : fileList
+
+      if (source === "upload" && nextFiles.length > MAX_UPLOAD_FILES) {
+        setError(t.upload.errors.tooManyFiles(MAX_UPLOAD_FILES))
+        resetInputs()
         return
       }
+
+      if (nextFiles.length === 0) return
+
+      for (const file of nextFiles) {
+        const validationError = validateFile(file, t.upload.errors)
+        if (validationError) {
+          setError(validationError)
+          resetInputs()
+          return
+        }
+      }
+
       try {
-        console.log(
-          `Original: ${(file.size / 1024 / 1024).toFixed(2)} MB`
-        )
-        
-        const compressedFile = await imageCompression(file, { maxSizeMB: 2, maxWidthOrHeight: 1600, useWebWorker: true, })
-        
-        console.log(
-          `Compressed: ${(compressedFile.size / 1024 / 1024).toFixed(2)} MB`
+        const images = await Promise.all(
+          nextFiles.map(async (file) => {
+            const optimizedFile = await imageCompression(file, {
+              maxSizeMB: 2,
+              maxWidthOrHeight: 1600,
+              useWebWorker: true,
+            })
+            const data = await imageToBase64(optimizedFile)
+            return {
+              id: generateId(),
+              previewUrl: URL.createObjectURL(optimizedFile),
+              ...data,
+              name: file.name,
+            }
+          }),
         )
 
-        const [url, data] = await Promise.all([
-          Promise.resolve(URL.createObjectURL(compressedFile)),
-          imageToBase64(compressedFile),
-        ])
-
-        setPreviewUrl(url)
-        setImageData({ ...data, name: file.name })
+        replaceSelectedImages(images)
         setUploadState("preview")
       } catch {
         setError(t.upload.errors.couldNotRead)
+      } finally {
+        resetInputs()
       }
     },
-    [t.upload.errors],
+    [replaceSelectedImages, resetInputs, t.upload.errors],
   )
 
-  const handleFileChange = useCallback(
+  const handleUploadChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0]
-      if (!file) return
-      void processFile(file)
-      e.target.value = ""
+      const files = e.target.files
+      if (!files?.length) return
+      void processFiles(files, "upload")
     },
-    [processFile],
+    [processFiles],
+  )
+
+  const handleCameraChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const files = e.target.files
+      if (!files?.length) return
+      void processFiles(files, "camera")
+    },
+    [processFiles],
   )
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -139,31 +196,48 @@ export function MenuUploadPage({
     (e: React.DragEvent) => {
       e.preventDefault()
       setIsDragging(false)
-      const file = e.dataTransfer.files?.[0]
-      if (!file) return
-      void processFile(file)
+      const files = e.dataTransfer.files
+      if (!files?.length) return
+      void processFiles(files, "upload")
     },
-    [processFile],
+    [processFiles],
   )
 
   const handleClear = useCallback(() => {
-    setPreviewUrl(null)
-    setImageData(null)
+    replaceSelectedImages([])
     setError(null)
     setUploadState("idle")
-    if (fileInputRef.current) fileInputRef.current.value = ""
-    if (cameraInputRef.current) cameraInputRef.current.value = ""
-  }, [])
+    resetInputs()
+  }, [replaceSelectedImages, resetInputs])
+
+  const handleRemoveImage = useCallback(
+    (imageId: string) => {
+      setSelectedImages((currentImages) => {
+        const imageToRemove = currentImages.find((image) => image.id === imageId)
+        if (!imageToRemove) return currentImages
+
+        URL.revokeObjectURL(imageToRemove.previewUrl)
+        const remainingImages = currentImages.filter((image) => image.id !== imageId)
+        setUploadState(remainingImages.length > 0 ? "preview" : "idle")
+        return remainingImages
+      })
+      setError(null)
+      resetInputs()
+    },
+    [resetInputs],
+  )
 
   const analyzeWithImage = useCallback(async () => {
-    if (!imageData) return
+    if (selectedImages.length === 0) return
     setError(null)
     setUploadState("analyzing")
     try {
-      const result = await analyzeMenuImage({
-        base64: imageData.base64,
-        mimeType: imageData.mimeType,
-        sourceImageName: imageData.name,
+      const result = await analyzeMenuImages({
+        images: selectedImages.map((image) => ({
+          base64: image.base64,
+          mimeType: image.mimeType,
+          sourceImageName: image.name,
+        })),
         targetLanguage: language,
       })
       onMenuAnalyzed(result)
@@ -173,17 +247,16 @@ export function MenuUploadPage({
       setError(message)
       setUploadState("preview")
     }
-  }, [imageData, language, onMenuAnalyzed, t.upload.errors.analysisFailed])
+  }, [language, onMenuAnalyzed, selectedImages, t.upload.errors.analysisFailed])
 
   const runDemo = useCallback(() => {
-    setPreviewUrl(null)
-    setImageData(null)
+    replaceSelectedImages([])
     setError(null)
     setUploadState("analyzing")
     window.setTimeout(() => {
       onMenuAnalyzed(MOCK_MENU)
     }, 1200)
-  }, [onMenuAnalyzed])
+  }, [onMenuAnalyzed, replaceSelectedImages])
 
   return (
     <>
@@ -333,7 +406,7 @@ export function MenuUploadPage({
           )}
 
           {(uploadState === "preview" || uploadState === "analyzing") &&
-            previewUrl && (
+            selectedImages.length > 0 && (
               <motion.div
                 key="preview"
                 initial={{ opacity: 0, scale: 0.97 }}
@@ -342,23 +415,47 @@ export function MenuUploadPage({
                 transition={{ duration: 0.18 }}
               >
                 <Card className="overflow-hidden py-0">
-                  <div className="relative">
-                    <img
-                      src={previewUrl}
-                      alt="Selected menu"
-                      className="w-full object-cover"
-                      style={{ maxHeight: 240 }}
-                    />
-                    {uploadState === "preview" && (
-                      <button
-                        type="button"
-                        onClick={handleClear}
-                        className="absolute right-2 top-2 flex size-9 items-center justify-center rounded-full bg-black/55 text-white backdrop-blur-sm transition-colors hover:bg-black/75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
-                        aria-label="Remove photo"
-                      >
-                        <X className="size-4" />
-                      </button>
-                    )}
+                  <div className="relative p-3">
+                    <div
+                      className={cn(
+                        "grid gap-2",
+                        selectedImages.length === 1 ? "grid-cols-1" : "grid-cols-2",
+                      )}
+                    >
+                      {selectedImages.map((image, index) => (
+                        <div
+                          key={image.id}
+                          className={cn(
+                            "relative overflow-hidden rounded-lg border bg-muted/30",
+                            selectedImages.length === 1 ? "h-[240px]" : "h-40",
+                          )}
+                        >
+                          <Image
+                            src={image.previewUrl}
+                            alt={`Selected menu ${index + 1}`}
+                            fill
+                            unoptimized
+                            sizes={selectedImages.length === 1 ? "100vw" : "50vw"}
+                            className="object-cover"
+                          />
+                          {selectedImages.length > 1 && (
+                            <div className="absolute left-2 top-2 rounded-full bg-black/60 px-2 py-0.5 text-[11px] font-semibold text-white backdrop-blur-sm">
+                              {index + 1}
+                            </div>
+                          )}
+                          {uploadState === "preview" && (
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveImage(image.id)}
+                              className="absolute right-2 top-2 flex size-9 items-center justify-center rounded-full bg-black/55 text-white backdrop-blur-sm transition-colors hover:bg-black/75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                              aria-label={`Remove ${image.name}`}
+                            >
+                              <X className="size-4" />
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
                     {uploadState === "analyzing" && (
                       <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/50 backdrop-blur-sm">
                         <LoaderCircle
@@ -410,6 +507,7 @@ export function MenuUploadPage({
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.18 }}
+              className="space-y-2"
             >
               <Button
                 type="button"
@@ -419,6 +517,16 @@ export function MenuUploadPage({
                 <Sparkles className="size-4" aria-hidden="true" />
                 {t.upload.translateMenu}
               </Button>
+              {selectedImages.length > 1 && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="h-11 w-full text-sm text-muted-foreground"
+                  onClick={handleClear}
+                >
+                  {t.upload.dismiss}
+                </Button>
+              )}
             </motion.div>
           )}
         </AnimatePresence>
@@ -469,8 +577,9 @@ export function MenuUploadPage({
           ref={fileInputRef}
           type="file"
           accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
+          multiple
           className="hidden"
-          onChange={handleFileChange}
+          onChange={handleUploadChange}
           aria-label="Upload menu photo from library"
         />
         <input
@@ -479,7 +588,7 @@ export function MenuUploadPage({
           accept="image/*"
           capture="environment"
           className="hidden"
-          onChange={handleFileChange}
+          onChange={handleCameraChange}
           aria-label="Take a photo with camera"
         />
       </div>

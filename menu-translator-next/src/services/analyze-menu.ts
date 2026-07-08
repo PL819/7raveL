@@ -1,14 +1,8 @@
-import type { MenuData, TranslationLanguage } from "@/types/menu"
+import type { AnalyzeMenuBatchInput, AnalyzeMenuImageInput } from "@/types/analyze-menu"
+import type { MenuData } from "@/types/menu"
 
-export interface AnalyzeMenuImageInput {
-  base64: string
-  mimeType: string
-  sourceImageName?: string
-  targetLanguage?: TranslationLanguage
-}
-
-export async function analyzeMenuImage(
-  input: AnalyzeMenuImageInput,
+export async function analyzeMenuImages(
+  input: AnalyzeMenuBatchInput,
 ): Promise<MenuData> {
   const res = await fetch("/api/analyze-menu", {
     method: "POST",
@@ -17,9 +11,22 @@ export async function analyzeMenuImage(
   })
 
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ message: "Analysis failed. Please try again." }))
+    const err = await res
+      .json()
+      .catch(() => ({ message: "Analysis failed. Please try again." }))
     throw new Error(err.message ?? "Analysis failed. Please try again.")
   }
 
   return res.json()
+}
+
+export async function analyzeMenuImage(
+  input: AnalyzeMenuImageInput,
+): Promise<MenuData> {
+  const { targetLanguage, ...image } = input
+
+  return analyzeMenuImages({
+    images: [image],
+    targetLanguage,
+  })
 }

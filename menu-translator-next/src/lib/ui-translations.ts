@@ -27,6 +27,7 @@ export interface UITranslations {
     errors: {
       unsupportedFormat: (ext: string) => string
       fileTooLarge: string
+      tooManyFiles: (max: number) => string
       couldNotRead: string
       analysisFailed: string
     }
@@ -70,9 +71,10 @@ const en: UITranslations = {
     subheadingAfter: " in seconds.",
     dismiss: "Dismiss",
     dropToUpload: "Drop to upload",
-    uploadMenuPhoto: "Upload menu photo",
+    uploadMenuPhoto: "Upload menu photos",
     fileTypesDragging: "JPG, PNG, WebP, HEIC",
-    fileTypesNormal: "Drag & drop, or click · JPG PNG WebP HEIC · max 20 MB",
+    fileTypesNormal:
+      "Drag & drop, or click · up to 5 images · JPG PNG WebP HEIC · max 20 MB each",
     takePhoto: "Take a photo",
     translatingMenu: "Translating menu…",
     extractingDishes: "Extracting dishes…",
@@ -88,6 +90,7 @@ const en: UITranslations = {
       unsupportedFormat: (ext) =>
         `${ext} files aren't supported. Please use JPG, PNG, WebP, or HEIC.`,
       fileTooLarge: "File is too large. Please use an image under 20 MB.",
+      tooManyFiles: (max) => `You can upload up to ${max} images at a time.`,
       couldNotRead: "Could not read the image. Please try another file.",
       analysisFailed: "Analysis failed. Please try again.",
     },
@@ -131,9 +134,10 @@ const fa: UITranslations = {
     subheadingAfter: " ترجمه می‌کنیم.",
     dismiss: "بستن",
     dropToUpload: "برای بارگذاری رها کنید",
-    uploadMenuPhoto: "بارگذاری عکس منو",
+    uploadMenuPhoto: "بارگذاری عکس‌های منو",
     fileTypesDragging: "JPG، PNG، WebP، HEIC",
-    fileTypesNormal: "بکشید و رها کنید یا کلیک کنید · JPG PNG WebP HEIC · حداکثر ۲۰ مگابایت",
+    fileTypesNormal:
+      "بکشید و رها کنید یا کلیک کنید · حداکثر ۵ تصویر · JPG PNG WebP HEIC · هر کدام حداکثر ۲۰ مگابایت",
     takePhoto: "عکس بگیرید",
     translatingMenu: "در حال ترجمه منو…",
     extractingDishes: "در حال استخراج غذاها…",
@@ -149,6 +153,7 @@ const fa: UITranslations = {
       unsupportedFormat: (ext) =>
         `فایل‌های ${ext} پشتیبانی نمی‌شوند. لطفاً از JPG، PNG، WebP یا HEIC استفاده کنید.`,
       fileTooLarge: "فایل بیش از حد بزرگ است. لطفاً تصویری کمتر از ۲۰ مگابایت انتخاب کنید.",
+      tooManyFiles: (max) => `می‌توانید حداکثر ${max} تصویر را هم‌زمان بارگذاری کنید.`,
       couldNotRead: "خواندن تصویر ممکن نبود. لطفاً فایل دیگری را امتحان کنید.",
       analysisFailed: "تحلیل ناموفق بود. لطفاً دوباره تلاش کنید.",
     },
@@ -192,9 +197,10 @@ const zhTW: UITranslations = {
     subheadingAfter: "，廢事你出醜。",
     dismiss: "收聲啦",
     dropToUpload: "掉過嚟啦",
-    uploadMenuPhoto: "Send 張餐牌相嚟",
+    uploadMenuPhoto: "一次過 Send 幾張餐牌相嚟",
     fileTypesDragging: "JPG、PNG、WebP、HEIC",
-    fileTypesNormal: "JPG, PNG, WebP, HEIC · 唔好超過 20 MB",
+    fileTypesNormal:
+      "最多 5 張 · JPG, PNG, WebP, HEIC · 每張唔好超過 20 MB",
     takePhoto: "快啲影",
     translatingMenu: "做緊野 你唔好吹我…",
     extractingDishes: "搵緊啲餸名出嚟…",
@@ -210,6 +216,7 @@ const zhTW: UITranslations = {
       unsupportedFormat: (ext) =>
         `${ext}？你認真㗎？用 JPG、PNG、WebP 或 HEIC 啦。`,
       fileTooLarge: "張圖肥到爆。20 MB 以下先再試。",
+      tooManyFiles: (max) => `一次最多 ${max} 張，你貪心都有限度啦。`,
       couldNotRead: "呢張相影成咁，我真係睇唔明。",
       analysisFailed: "炒車喇，再試過啦。",
     },
@@ -256,7 +263,7 @@ const ru: UITranslations = {
     uploadMenuPhoto: "Загрузить фото меню",
     fileTypesDragging: "JPG, PNG, WebP, HEIC",
     fileTypesNormal:
-      "Перетащите файл сюда или нажмите · JPG PNG WebP HEIC · максимум 20 МБ",
+      "Перетащите файл сюда или нажмите · до 5 изображений · JPG PNG WebP HEIC · максимум 20 МБ каждое",
     takePhoto: "Сделать фото",
     translatingMenu: "Переводим меню…",
     extractingDishes: "Извлекаем блюда…",
@@ -272,6 +279,7 @@ const ru: UITranslations = {
       unsupportedFormat: (ext) =>
         `${ext} не поддерживается. Используйте JPG, PNG, WebP или HEIC.`,
       fileTooLarge: "Файл слишком большой. Используйте изображение до 20 МБ.",
+      tooManyFiles: (max) => `Можно загрузить до ${max} изображений за один раз.`,
       couldNotRead: "Не удалось прочитать изображение. Попробуйте другой файл.",
       analysisFailed: "Анализ не удался. Попробуйте ещё раз.",
     },
@@ -316,10 +324,10 @@ const si: UITranslations = {
     subheadingAfter: " භාෂාවට පරිවර්තනය කරන්නෙමු.",
     dismiss: "වසා දමන්න",
     dropToUpload: "උඩුගත කිරීමට අතහරින්න",
-    uploadMenuPhoto: "මෙනු ඡායාරූපයක් උඩුගත කරන්න",
+    uploadMenuPhoto: "මෙනු ඡායාරූප කිහිපයක් උඩුගත කරන්න",
     fileTypesDragging: "JPG, PNG, WebP, HEIC",
     fileTypesNormal:
-      "ඇද දමන්න, නැතහොත් ක්ලික් කරන්න · JPG PNG WebP HEIC · උපරිම 20 MB",
+      "ඇද දමන්න, නැතහොත් ක්ලික් කරන්න · උපරිම රූප 5ක් · JPG PNG WebP HEIC · එක් රූපයක් 20 MB ට අඩු විය යුතුය",
     takePhoto: "ඡායාරූපයක් ගන්න",
     translatingMenu: "මෙනුව පරිවර්තනය වෙමින්…",
     extractingDishes: "කෑම වර්ග හඳුනා ගනිමින්…",
@@ -336,6 +344,8 @@ const si: UITranslations = {
         `${ext} ගොනු සඳහා සහය නොදක්වයි. කරුණාකර JPG, PNG, WebP, හෝ HEIC භාවිත කරන්න.`,
       fileTooLarge:
         "ගොනුව විශාල වැඩිය. කරුණාකර 20 MB ට අඩු රූපයක් භාවිත කරන්න.",
+      tooManyFiles: (max) =>
+        `එකවර උඩුගත කළ හැක්කේ උපරිම රූප ${max} ක් පමණි.`,
       couldNotRead:
         "රූපය කියවිය නොහැකි විය. කරුණාකර වෙනත් ගොනුවක් උත්සාහ කරන්න.",
       analysisFailed: "විශ්ලේෂණය අසාර්ථක විය. කරුණාකර නැවත උත්සාහ කරන්න.",
@@ -384,7 +394,7 @@ const hi: UITranslations = {
     uploadMenuPhoto: "मेनू की फ़ोटो अपलोड करें",
     fileTypesDragging: "JPG, PNG, WebP, HEIC",
     fileTypesNormal:
-      "खींचकर छोड़ें, या क्लिक करें · JPG PNG WebP HEIC · अधिकतम 20 MB",
+      "खींचकर छोड़ें, या क्लिक करें · अधिकतम 5 चित्र · JPG PNG WebP HEIC · प्रत्येक 20 MB तक",
     takePhoto: "फ़ोटो लें",
     translatingMenu: "मेनू का अनुवाद हो रहा है…",
     extractingDishes: "व्यंजन निकाले जा रहे हैं…",
@@ -401,6 +411,8 @@ const hi: UITranslations = {
         `${ext} फ़ाइलें समर्थित नहीं हैं। कृपया JPG, PNG, WebP, या HEIC का उपयोग करें।`,
       fileTooLarge:
         "फ़ाइल बहुत बड़ी है। कृपया 20 MB से छोटी छवि का उपयोग करें।",
+      tooManyFiles: (max) =>
+        `आप एक बार में अधिकतम ${max} चित्र अपलोड कर सकते हैं।`,
       couldNotRead:
         "छवि पढ़ी नहीं जा सकी। कृपया कोई दूसरी फ़ाइल आज़माएँ।",
       analysisFailed: "विश्लेषण विफल रहा। कृपया फिर से कोशिश करें।",

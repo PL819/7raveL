@@ -43,6 +43,10 @@ export function MenuBrowserPage({
     () => cartItems.reduce((sum, ci) => sum + ci.quantity, 0),
     [cartItems],
   )
+  const sourceLabel =
+    menu.sourceImageNames && menu.sourceImageNames.length > 0
+      ? menu.sourceImageNames.join(" · ")
+      : menu.sourceImageName
 
   const activeCategory = menu.categories.find((c) => c.id === activeCategoryId)
 
@@ -51,9 +55,9 @@ export function MenuBrowserPage({
       {/* Page title */}
       <div className="shrink-0 px-4 pb-1 pt-5">
         <h1 className="text-xl font-semibold">{t.browser.title}</h1>
-        {menu.sourceImageName && (
+        {sourceLabel && (
           <p className="mt-0.5 truncate text-xs text-muted-foreground">
-            {menu.sourceImageName}
+            {sourceLabel}
           </p>
         )}
       </div>

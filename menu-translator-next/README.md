@@ -18,6 +18,24 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
+## Gemini debug harness
+
+Put sample menu images in `tools/gemini-debug/sample-images/`, then run:
+
+```bash
+npm run gemini:debug -- --image tools/gemini-debug/sample-images/your-menu.jpg
+```
+
+Optional flags:
+
+```bash
+--language en|zh-TW
+--report tools/gemini-debug/reports/custom-report.json
+--source-name "menu-photo.jpg"
+```
+
+Each run writes a JSON report under `tools/gemini-debug/reports/` and prints the exact system prompt, raw request body, raw Gemini response, token usage, and response time in the CLI.
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:
