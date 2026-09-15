@@ -67,24 +67,25 @@ function HomePageContent() {
     },
   })
 
+  const {
+    status: sessionStatus,
+    isCollaborative,
+    joinSession,
+  } = collaboration
+
   // Auto-join if URL contains ?session=ROOM_CODE
   const joinedCodeRef = useRef<string | null>(null)
   useEffect(() => {
     if (
       sessionQuery &&
-      collaboration.status === "idle" &&
-      !collaboration.isCollaborative &&
+      sessionStatus === "idle" &&
+      !isCollaborative &&
       joinedCodeRef.current !== sessionQuery
     ) {
       joinedCodeRef.current = sessionQuery
-      void collaboration.joinSession(sessionQuery)
+      void joinSession(sessionQuery)
     }
-  }, [
-    sessionQuery,
-    collaboration.status,
-    collaboration.isCollaborative,
-    collaboration.joinSession,
-  ])
+  }, [sessionQuery, sessionStatus, isCollaborative, joinSession])
 
   const totalCartQty = useMemo(
     () => cartItems.reduce((sum, ci) => sum + ci.quantity, 0),

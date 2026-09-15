@@ -80,7 +80,7 @@ export class HostSessionManager {
       if (peer.dc && peer.dc.readyState === "open") {
         try {
           peer.dc.send(json)
-        } catch (err) {}
+        } catch {}
       }
     }
   }

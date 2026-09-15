@@ -11,7 +11,7 @@ export async function POST(
     const { id } = await context.params
     await sessionStore.destroySession(id)
     return NextResponse.json({ success: true })
-  } catch (error) {
+  } catch {
     return NextResponse.json({ message: "Failed to destroy session" }, { status: 500 })
   }
 }
