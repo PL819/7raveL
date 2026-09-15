@@ -17,13 +17,13 @@ export async function POST(
     }
 
     if (body.type === "CART_ACTION") {
-      const ok = sessionStore.pushRelayCartAction(id, body as CartActionMessage)
+      const ok = await sessionStore.pushRelayCartAction(id, body as CartActionMessage)
       if (!ok) return NextResponse.json({ message: "Session not found" }, { status: 404 })
       return NextResponse.json({ success: true })
     }
 
     if (body.type === "CART_SYNC") {
-      const ok = sessionStore.pushRelayCartSync(id, body as CartSyncMessage)
+      const ok = await sessionStore.pushRelayCartSync(id, body as CartSyncMessage)
       if (!ok) return NextResponse.json({ message: "Session not found" }, { status: 404 })
       return NextResponse.json({ success: true })
     }
@@ -45,21 +45,21 @@ export async function GET(
     const role = searchParams.get("role") || "guest"
     const lastVersion = parseInt(searchParams.get("version") || "0", 10)
 
-    const session = sessionStore.getSession(id)
+    const session = await sessionStore.getSession(id)
     if (!session) {
       return NextResponse.json({ message: "Session not found" }, { status: 404 })
     }
 
     if (role === "host") {
       // Host drains pending guest cart actions
-      const actions = sessionStore.pollRelayCartActions(id)
+      const actions = await sessionStore.pollRelayCartActions(id)
       return NextResponse.json({ actions })
     } else {
       // Guests check for latest authoritative cart sync
-      const sync = sessionStore.pollRelayCartSyncs(id, lastVersion)
+      const sync = await sessionStore.pollRelayCartSyncs(id, lastVersion)
       return NextResponse.json({
         sync,
-        peerCount: session.peers.size + 1,
+        peerCount: Object.keys(session.peers).length + 1,
         cartVersion: session.cartVersion,
       })
     }

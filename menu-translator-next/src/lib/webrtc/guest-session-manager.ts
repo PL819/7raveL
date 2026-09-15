@@ -37,6 +37,7 @@ export class GuestSessionManager {
   private cartVersion = 0;
   private isDestroyed = false;
   private webrtcTimeoutTimer: ReturnType<typeof setTimeout> | null = null;
+  private pendingCandidates: RTCIceCandidateInit[] = [];
 
   constructor(
     sessionId: string,
@@ -125,6 +126,14 @@ export class GuestSessionManager {
 
       dc.onopen = () => {
         if (this.webrtcTimeoutTimer) clearTimeout(this.webrtcTimeoutTimer);
+        if (this.relayInterval) {
+          clearInterval(this.relayInterval);
+          this.relayInterval = null;
+        }
+        if (this.pollingInterval) {
+          clearInterval(this.pollingInterval);
+          this.pollingInterval = null;
+        }
         this.transportMode = "webrtc";
         this.callbacks.onStatusChange("connected");
       };
@@ -165,13 +174,19 @@ export class GuestSessionManager {
     }, 500);
   }
 
+  private isPollingSignals = false;
   private async pollSignals(): Promise<void> {
-    if (this.isDestroyed || !this.pc) return;
+    if (this.isDestroyed || !this.pc || this.isPollingSignals) return;
+    this.isPollingSignals = true;
 
     try {
       const res = await fetch(
         `/api/session/${this.sessionId}/signal?peerId=${encodeURIComponent(this.guestPeerId)}`,
       );
+      if (res.status === 404) {
+        this.handleWireMessage({ type: "SESSION_TERMINATED" } as CollaborativeWireMessage);
+        return;
+      }
       if (!res.ok) return;
 
       const data = (await res.json()) as {
@@ -190,6 +205,15 @@ export class GuestSessionManager {
             type: "offer",
             sdp: signal.sdp,
           });
+          
+          const queued = [...this.pendingCandidates];
+          this.pendingCandidates = [];
+          for (const cand of queued) {
+            await this.pc.addIceCandidate(new RTCIceCandidate(cand)).catch((err) => {
+              console.error("[GuestManager] Error adding queued candidate:", err);
+            });
+          }
+
           const answer = await this.pc.createAnswer();
           await this.pc.setLocalDescription(answer);
 
@@ -201,17 +225,23 @@ export class GuestSessionManager {
             });
           }
         } else if (signal.type === "candidate" && signal.candidate) {
-          try {
-            await this.pc.addIceCandidate(
-              new RTCIceCandidate(signal.candidate),
-            );
-          } catch (err) {
-            console.error("[GuestManager] Error adding candidate:", err);
+          if (this.pc.remoteDescription && this.pc.remoteDescription.type) {
+            try {
+              await this.pc.addIceCandidate(
+                new RTCIceCandidate(signal.candidate),
+              );
+            } catch (err) {
+              console.error("[GuestManager] Error adding candidate:", err);
+            }
+          } else {
+            this.pendingCandidates.push(signal.candidate);
           }
         }
       }
     } catch {
       // Retry next interval
+    } finally {
+      this.isPollingSignals = false;
     }
   }
 
@@ -237,6 +267,12 @@ export class GuestSessionManager {
       }
     } else if (msg.type === "PEER_PRESENCE") {
       this.callbacks.onPeerCountChange(msg.peerCount);
+    } else if (msg.type === "SESSION_TERMINATED") {
+      this.callbacks.onStatusChange("disconnected");
+      if (this.callbacks.onToastNotification) {
+        this.callbacks.onToastNotification("Host ended the session.");
+      }
+      this.destroy();
     }
   }
 
@@ -254,13 +290,19 @@ export class GuestSessionManager {
     }, 500);
   }
 
+  private isPollingRelay = false;
   private async pollRelaySync(): Promise<void> {
-    if (this.isDestroyed) return;
+    if (this.isDestroyed || this.isPollingRelay) return;
+    this.isPollingRelay = true;
 
     try {
       const res = await fetch(
         `/api/session/${this.sessionId}/relay?role=guest&version=${this.cartVersion}`,
       );
+      if (res.status === 404) {
+        this.handleWireMessage({ type: "SESSION_TERMINATED" } as CollaborativeWireMessage);
+        return;
+      }
       if (!res.ok) return;
 
       const data = (await res.json()) as {
@@ -278,6 +320,8 @@ export class GuestSessionManager {
       }
     } catch {
       // Ignore transient errors
+    } finally {
+      this.isPollingRelay = false;
     }
   }
 

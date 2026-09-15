@@ -56,10 +56,11 @@ export function useCollaborativeSession({
           currentOriginJoinUrl?: string
         }
 
-        // Prefer current origin for localhost testing, wifi joinUrl for remote phones
+        // Prefer joinUrl (wifi IP) for local testing so phones can scan and connect.
+        // Prefer currentOriginJoinUrl for production (Vercel) since the server IP is unreachable.
         const bestUrl =
-          typeof window !== "undefined" && window.location.hostname === "localhost"
-            ? data.currentOriginJoinUrl || data.joinUrl
+          typeof window !== "undefined" && window.location.hostname !== "localhost"
+            ? `${window.location.origin}/?session=${data.sessionId}`
             : data.joinUrl
 
         setSessionId(data.sessionId)
@@ -178,13 +179,20 @@ export function useCollaborativeSession({
       guestManagerRef.current.destroy()
       guestManagerRef.current = null
     }
+
+    if (role === "host" && sessionId) {
+      fetch(`/api/session/${sessionId}/destroy`, { method: "POST" }).catch((err) => {
+        console.error("Failed to destroy session", err)
+      })
+    }
+
     setRole("none")
     setStatus("idle")
     setSessionId(null)
     setJoinUrl("")
     setPeerCount(1)
     setQrOpen(false)
-  }, [])
+  }, [role, sessionId])
 
   // Warn host before closing tab while guests are connected
   useEffect(() => {

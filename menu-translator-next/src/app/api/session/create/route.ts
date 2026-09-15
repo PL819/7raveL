@@ -10,7 +10,7 @@ export async function POST(request: NextRequest) {
     const hostPeerId = body.hostPeerId || "host-" + Math.random().toString(36).slice(2, 9)
     const hostName = body.hostName || "Host"
 
-    const session = sessionStore.createSession(hostPeerId, hostName)
+    const session = await sessionStore.createSession(hostPeerId, hostName)
     const localIp = getLocalIpAddress()
 
     // Determine origin from request or local IP

@@ -1,3 +1,4 @@
+import { Redis } from '@upstash/redis'
 import type { CartItem, MenuData } from "@/types/menu"
 import type {
   CartActionMessage,
@@ -14,17 +15,25 @@ export interface ServerSessionRecord {
   menuData?: MenuData
   cartItems: CartItem[]
   cartVersion: number
-  peers: Map<string, SessionPeerInfo>
-  signalQueues: Map<string, SignalingMessage[]>
-  // Fallback relay queue for cart actions when WebRTC is blocked
+  peers: Record<string, SessionPeerInfo>
+  signalQueues: Record<string, SignalingMessage[]>
   relayCartActions: CartActionMessage[]
   relayCartSyncs: CartSyncMessage[]
   createdAt: number
   lastActiveAt: number
 }
 
+const redis = new Redis({
+  url: process.env.UPSTASH_REDIS_REST_URL ?? "https://perfect-guppy-99316.upstash.io",
+  token: process.env.UPSTASH_REDIS_REST_TOKEN ?? "gQAAAAAAAYP0AAIgcDIwMmRlNTYzYzY5MTc0ZTdlYWVjYjQ4N2I5OGE2NTFmZQ",
+})
+
+const EXPIRY_SECONDS = 3 * 60 * 60 // 3 hours
+
 class SessionStore {
-  private sessions = new Map<string, ServerSessionRecord>()
+  private getRedisKey(id: string) {
+    return `session:${id.toUpperCase().trim()}`
+  }
 
   private generateRoomCode(): string {
     const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789" // Exclude confusing chars I, O, 1, 0
@@ -32,17 +41,17 @@ class SessionStore {
     for (let i = 0; i < 6; i++) {
       code += chars.charAt(Math.floor(Math.random() * chars.length))
     }
-    // Ensure uniqueness
-    if (this.sessions.has(code)) {
-      return this.generateRoomCode()
-    }
     return code
   }
 
-  public createSession(hostPeerId: string, hostName = "Host"): ServerSessionRecord {
-    this.cleanupStaleSessions()
+  public async createSession(hostPeerId: string, hostName = "Host"): Promise<ServerSessionRecord> {
+    let id = this.generateRoomCode()
+    let existing = await redis.get<ServerSessionRecord>(this.getRedisKey(id))
+    while (existing) {
+      id = this.generateRoomCode()
+      existing = await redis.get<ServerSessionRecord>(this.getRedisKey(id))
+    }
 
-    const id = this.generateRoomCode()
     const now = Date.now()
 
     const session: ServerSessionRecord = {
@@ -51,52 +60,56 @@ class SessionStore {
       hostName,
       cartItems: [],
       cartVersion: 0,
-      peers: new Map(),
-      signalQueues: new Map(),
+      peers: {},
+      signalQueues: {},
       relayCartActions: [],
       relayCartSyncs: [],
       createdAt: now,
       lastActiveAt: now,
     }
 
-    // Host signal mailbox
-    session.signalQueues.set(hostPeerId, [])
-    this.sessions.set(id, session)
+    session.signalQueues[hostPeerId] = []
+    await redis.set(this.getRedisKey(id), session, { ex: EXPIRY_SECONDS })
     return session
   }
 
-  public getSession(id: string): ServerSessionRecord | undefined {
-    const session = this.sessions.get(id.toUpperCase().trim())
+  public async getSession(id: string): Promise<ServerSessionRecord | undefined> {
+    const session = await redis.get<ServerSessionRecord>(this.getRedisKey(id))
     if (session) {
       session.lastActiveAt = Date.now()
+      // Refresh expiry time on access
+      await redis.set(this.getRedisKey(id), session, { ex: EXPIRY_SECONDS })
+      return session
     }
-    return session
+    return undefined
   }
 
-  public joinSession(
+  public async joinSession(
     sessionId: string,
     peerId: string,
     peerName = "Guest",
-  ): { success: boolean; session?: ServerSessionRecord; error?: string } {
-    const session = this.getSession(sessionId)
+  ): Promise<{ success: boolean; session?: ServerSessionRecord; error?: string }> {
+    const session = await this.getSession(sessionId)
     if (!session) {
       return { success: false, error: "Session not found or has expired." }
     }
 
-    // Register guest
-    session.peers.set(peerId, {
+    session.peers[peerId] = {
       peerId,
       name: peerName,
       joinedAt: Date.now(),
       transport: "webrtc",
-    })
-
-    if (!session.signalQueues.has(peerId)) {
-      session.signalQueues.set(peerId, [])
     }
 
+    if (!session.signalQueues[peerId]) {
+      session.signalQueues[peerId] = []
+    }
+
+    // Save before pushing signal
+    await redis.set(this.getRedisKey(sessionId), session, { ex: EXPIRY_SECONDS })
+
     // Push notification to host that a new peer joined
-    this.pushSignal(sessionId, {
+    await this.pushSignal(sessionId, {
       id: generateId(),
       sessionId,
       fromPeerId: peerId,
@@ -106,22 +119,24 @@ class SessionStore {
       timestamp: Date.now(),
     })
 
-    return { success: true, session }
+    // Fetch fresh to return
+    const updatedSession = await this.getSession(sessionId)
+    return { success: true, session: updatedSession! }
   }
 
-  public pushSignal(
+  public async pushSignal(
     sessionId: string,
     signal: Omit<SignalingMessage, "id" | "timestamp"> & {
       id?: string
       timestamp?: number
     },
-  ): boolean {
-    const session = this.getSession(sessionId)
+  ): Promise<boolean> {
+    const session = await this.getSession(sessionId)
     if (!session) return false
 
-    const queue = session.signalQueues.get(signal.toPeerId)
+    const queue = session.signalQueues[signal.toPeerId]
     if (!queue) {
-      session.signalQueues.set(signal.toPeerId, [])
+      session.signalQueues[signal.toPeerId] = []
     }
 
     const fullSignal: SignalingMessage = {
@@ -136,47 +151,50 @@ class SessionStore {
       peerName: signal.peerName,
     }
 
-    session.signalQueues.get(signal.toPeerId)?.push(fullSignal)
+    session.signalQueues[signal.toPeerId]?.push(fullSignal)
     session.lastActiveAt = Date.now()
+    await redis.set(this.getRedisKey(sessionId), session, { ex: EXPIRY_SECONDS })
     return true
   }
 
-  public pollSignals(sessionId: string, peerId: string): SignalingMessage[] {
-    const session = this.getSession(sessionId)
+  public async pollSignals(sessionId: string, peerId: string): Promise<SignalingMessage[]> {
+    const session = await this.getSession(sessionId)
     if (!session) return []
 
-    const queue = session.signalQueues.get(peerId)
+    const queue = session.signalQueues[peerId]
     if (!queue || queue.length === 0) return []
 
     // Drain pending signals
     const signals = [...queue]
-    session.signalQueues.set(peerId, [])
+    session.signalQueues[peerId] = []
     session.lastActiveAt = Date.now()
+    await redis.set(this.getRedisKey(sessionId), session, { ex: EXPIRY_SECONDS })
     return signals
   }
 
-  // Fallback HTTP relay for cart actions
-  public pushRelayCartAction(sessionId: string, action: CartActionMessage): boolean {
-    const session = this.getSession(sessionId)
+  public async pushRelayCartAction(sessionId: string, action: CartActionMessage): Promise<boolean> {
+    const session = await this.getSession(sessionId)
     if (!session) return false
     session.relayCartActions.push(action)
     // Keep max 50 recent actions
     if (session.relayCartActions.length > 50) {
       session.relayCartActions.shift()
     }
+    await redis.set(this.getRedisKey(sessionId), session, { ex: EXPIRY_SECONDS })
     return true
   }
 
-  public pollRelayCartActions(sessionId: string): CartActionMessage[] {
-    const session = this.getSession(sessionId)
+  public async pollRelayCartActions(sessionId: string): Promise<CartActionMessage[]> {
+    const session = await this.getSession(sessionId)
     if (!session) return []
     const actions = [...session.relayCartActions]
     session.relayCartActions = []
+    await redis.set(this.getRedisKey(sessionId), session, { ex: EXPIRY_SECONDS })
     return actions
   }
 
-  public pushRelayCartSync(sessionId: string, sync: CartSyncMessage): boolean {
-    const session = this.getSession(sessionId)
+  public async pushRelayCartSync(sessionId: string, sync: CartSyncMessage): Promise<boolean> {
+    const session = await this.getSession(sessionId)
     if (!session) return false
     session.cartItems = sync.cartItems
     session.cartVersion = sync.cartVersion
@@ -184,11 +202,12 @@ class SessionStore {
     if (session.relayCartSyncs.length > 20) {
       session.relayCartSyncs.shift()
     }
+    await redis.set(this.getRedisKey(sessionId), session, { ex: EXPIRY_SECONDS })
     return true
   }
 
-  public pollRelayCartSyncs(sessionId: string, lastVersion: number): CartSyncMessage | null {
-    const session = this.getSession(sessionId)
+  public async pollRelayCartSyncs(sessionId: string, lastVersion: number): Promise<CartSyncMessage | null> {
+    const session = await this.getSession(sessionId)
     if (!session) return null
     if (session.cartVersion > lastVersion) {
       return {
@@ -200,15 +219,8 @@ class SessionStore {
     return null
   }
 
-  private cleanupStaleSessions(): void {
-    const now = Date.now()
-    const TWO_HOURS_MS = 2 * 60 * 60 * 1000
-
-    for (const [id, session] of this.sessions.entries()) {
-      if (now - session.lastActiveAt > TWO_HOURS_MS) {
-        this.sessions.delete(id)
-      }
-    }
+  public async destroySession(id: string): Promise<void> {
+    await redis.del(this.getRedisKey(id))
   }
 }
 

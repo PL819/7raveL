@@ -17,7 +17,7 @@ export async function POST(
       return NextResponse.json({ message: "peerId is required" }, { status: 400 })
     }
 
-    const result = sessionStore.joinSession(id, peerId, peerName)
+    const result = await sessionStore.joinSession(id, peerId, peerName)
     if (!result.success || !result.session) {
       return NextResponse.json(
         { message: result.error || "Failed to join session" },
@@ -31,7 +31,7 @@ export async function POST(
       hostName: result.session.hostName,
       cartItems: result.session.cartItems,
       cartVersion: result.session.cartVersion,
-      peerCount: result.session.peers.size + 1, // Host + all peers
+      peerCount: Object.keys(result.session.peers).length + 1, // Host + all peers
     })
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to join session"

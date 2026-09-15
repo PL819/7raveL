@@ -18,7 +18,7 @@ export async function POST(
       )
     }
 
-    const ok = sessionStore.pushSignal(id, body)
+    const ok = await sessionStore.pushSignal(id, body)
     if (!ok) {
       return NextResponse.json({ message: "Session not found" }, { status: 404 })
     }
@@ -43,15 +43,15 @@ export async function GET(
       return NextResponse.json({ message: "peerId query param is required" }, { status: 400 })
     }
 
-    const session = sessionStore.getSession(id)
+    const session = await sessionStore.getSession(id)
     if (!session) {
       return NextResponse.json({ message: "Session not found" }, { status: 404 })
     }
 
-    const signals = sessionStore.pollSignals(id, peerId)
+    const signals = await sessionStore.pollSignals(id, peerId)
     return NextResponse.json({
       signals,
-      peerCount: session.peers.size + 1,
+      peerCount: Object.keys(session.peers).length + 1,
       cartVersion: session.cartVersion,
     })
   } catch (error) {

@@ -5,6 +5,7 @@ import type {
   CollaborativeWireMessage,
   SessionInitMessage,
   SignalingMessage,
+  PeerPresenceMessage,
 } from "@/types/session"
 import { isWebRTCSupported, RTC_CONFIG } from "./webrtc-config"
 
@@ -20,6 +21,7 @@ interface PeerConnectionRecord {
   pc?: RTCPeerConnection
   dc?: RTCDataChannel
   connected: boolean
+  pendingCandidates: RTCIceCandidateInit[]
 }
 
 export class HostSessionManager {
@@ -57,6 +59,30 @@ export class HostSessionManager {
       if (p.connected) connected++
     }
     return connected + 1 // Include host
+  }
+
+  public getPeerNames(): string[] {
+    const names = ["Host"]
+    for (const p of this.peers.values()) {
+      if (p.connected) names.push(p.name)
+    }
+    return names
+  }
+
+  private broadcastPeerPresence(): void {
+    const msg: PeerPresenceMessage = {
+      type: "PEER_PRESENCE",
+      peerCount: this.getPeerCount(),
+      peerNames: this.getPeerNames(),
+    }
+    const json = JSON.stringify(msg)
+    for (const peer of this.peers.values()) {
+      if (peer.dc && peer.dc.readyState === "open") {
+        try {
+          peer.dc.send(json)
+        } catch (err) {}
+      }
+    }
   }
 
   public getCartItems(): CartItem[] {
@@ -148,8 +174,10 @@ export class HostSessionManager {
     }, 500)
   }
 
+  private isPollingSignals = false
   private async pollSignals(): Promise<void> {
-    if (this.isDestroyed) return
+    if (this.isDestroyed || this.isPollingSignals) return
+    this.isPollingSignals = true
 
     try {
       const res = await fetch(
@@ -165,6 +193,8 @@ export class HostSessionManager {
       }
     } catch {
       // Network hiccup; will retry next interval
+    } finally {
+      this.isPollingSignals = false
     }
   }
 
@@ -173,10 +203,18 @@ export class HostSessionManager {
 
     if (signal.type === "peer_joined") {
       const guestName = signal.peerName || "Dining Partner"
+      
+      const existingPeer = this.peers.get(fromPeerId)
+      if (existingPeer) {
+        if (existingPeer.dc) existingPeer.dc.close()
+        if (existingPeer.pc) existingPeer.pc.close()
+      }
+
       this.peers.set(fromPeerId, {
         peerId: fromPeerId,
         name: guestName,
         connected: false,
+        pendingCandidates: [],
       })
 
       if (isWebRTCSupported()) {
@@ -194,14 +232,26 @@ export class HostSessionManager {
           type: "answer",
           sdp: signal.sdp,
         })
+
+        const queued = [...peerRecord.pendingCandidates]
+        peerRecord.pendingCandidates = []
+        for (const cand of queued) {
+          await peerRecord.pc.addIceCandidate(new RTCIceCandidate(cand)).catch(err => {
+            console.error(`[HostManager] Error adding queued ICE candidate for ${fromPeerId}:`, err)
+          })
+        }
       } catch (err) {
         console.error(`[HostManager] Error setting remote description for ${fromPeerId}:`, err)
       }
     } else if (signal.type === "candidate" && signal.candidate) {
-      try {
-        await peerRecord.pc.addIceCandidate(new RTCIceCandidate(signal.candidate))
-      } catch (err) {
-        console.error(`[HostManager] Error adding ICE candidate for ${fromPeerId}:`, err)
+      if (peerRecord.pc.remoteDescription && peerRecord.pc.remoteDescription.type) {
+        try {
+          await peerRecord.pc.addIceCandidate(new RTCIceCandidate(signal.candidate))
+        } catch (err) {
+          console.error(`[HostManager] Error adding ICE candidate for ${fromPeerId}:`, err)
+        }
+      } else {
+        peerRecord.pendingCandidates.push(signal.candidate)
       }
     }
   }
@@ -217,6 +267,7 @@ export class HostSessionManager {
         pc,
         dc,
         connected: false,
+        pendingCandidates: [],
       }
       this.peers.set(peerId, record)
 
@@ -238,6 +289,7 @@ export class HostSessionManager {
         if (pc.connectionState === "connected") {
           record.connected = true
           this.callbacks.onPeerCountChange(this.getPeerCount())
+          this.broadcastPeerPresence()
         } else if (
           pc.connectionState === "disconnected" ||
           pc.connectionState === "failed" ||
@@ -245,12 +297,14 @@ export class HostSessionManager {
         ) {
           record.connected = false
           this.callbacks.onPeerCountChange(this.getPeerCount())
+          this.broadcastPeerPresence()
         }
       }
 
       dc.onopen = () => {
         record.connected = true
         this.callbacks.onPeerCountChange(this.getPeerCount())
+        this.broadcastPeerPresence()
 
         // Send initial state hydration to newly connected guest
         const initMsg: SessionInitMessage = {
@@ -277,6 +331,7 @@ export class HostSessionManager {
       dc.onclose = () => {
         record.connected = false
         this.callbacks.onPeerCountChange(this.getPeerCount())
+        this.broadcastPeerPresence()
       }
 
       // Create and send SDP offer
@@ -303,8 +358,10 @@ export class HostSessionManager {
     }
   }
 
+  private isPollingRelay = false
   private async pollRelayActions(): Promise<void> {
-    if (this.isDestroyed) return
+    if (this.isDestroyed || this.isPollingRelay) return
+    this.isPollingRelay = true
 
     try {
       const res = await fetch(`/api/session/${this.sessionId}/relay?role=host`)
@@ -318,6 +375,8 @@ export class HostSessionManager {
       }
     } catch {
       // Ignore transient errors
+    } finally {
+      this.isPollingRelay = false
     }
   }
 
@@ -344,7 +403,17 @@ export class HostSessionManager {
     if (this.pollingInterval) clearInterval(this.pollingInterval)
     if (this.relayPollInterval) clearInterval(this.relayPollInterval)
 
+    const termMsg: import("@/types/session").SessionTerminatedMessage = { type: "SESSION_TERMINATED" }
+    const termJson = JSON.stringify(termMsg)
+
     for (const peer of this.peers.values()) {
+      if (peer.dc && peer.dc.readyState === "open") {
+        try {
+          peer.dc.send(termJson)
+        } catch (err) {
+          console.error(`[HostManager] Failed to send termination msg to ${peer.peerId}:`, err)
+        }
+      }
       if (peer.dc) peer.dc.close()
       if (peer.pc) peer.pc.close()
     }
