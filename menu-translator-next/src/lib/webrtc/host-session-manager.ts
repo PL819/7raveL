@@ -161,17 +161,19 @@ export class HostSessionManager {
   }
 
   private startSignalingPolling(): void {
-    // 250ms fast polling for joining peers and SDP signals
+    if (this.pollingInterval) clearInterval(this.pollingInterval)
+    // 1000ms polling for joining peers and SDP signals
     this.pollingInterval = setInterval(() => {
       void this.pollSignals()
-    }, 250)
+    }, 1000)
   }
 
   private startRelayPolling(): void {
-    // 500ms polling for relay cart actions from guests without WebRTC
+    if (this.relayPollInterval) clearInterval(this.relayPollInterval)
+    // 2000ms polling for relay cart actions from guests
     this.relayPollInterval = setInterval(() => {
       void this.pollRelayActions()
-    }, 500)
+    }, 2000)
   }
 
   private isPollingSignals = false
@@ -261,13 +263,14 @@ export class HostSessionManager {
       const pc = new RTCPeerConnection(RTC_CONFIG)
       const dc = pc.createDataChannel("order-sync", { ordered: true })
 
+      const existing = this.peers.get(peerId)
       const record: PeerConnectionRecord = {
         peerId,
         name: peerName,
         pc,
         dc,
         connected: false,
-        pendingCandidates: [],
+        pendingCandidates: existing ? existing.pendingCandidates : [],
       }
       this.peers.set(peerId, record)
 

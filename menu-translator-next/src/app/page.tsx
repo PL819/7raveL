@@ -1,7 +1,7 @@
 "use client"
 
-import { Suspense, useCallback, useEffect, useMemo, useState } from "react"
-import { useSearchParams } from "next/navigation"
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { AnimatePresence, motion } from "framer-motion"
 import { Camera, ShoppingCart, UtensilsCrossed } from "lucide-react"
 
@@ -42,6 +42,8 @@ export default function HomePage() {
 }
 
 function HomePageContent() {
+  const router = useRouter()
+  const pathname = usePathname()
   const searchParams = useSearchParams()
   const sessionQuery = searchParams.get("session")
 
@@ -66,11 +68,23 @@ function HomePageContent() {
   })
 
   // Auto-join if URL contains ?session=ROOM_CODE
+  const joinedCodeRef = useRef<string | null>(null)
   useEffect(() => {
-    if (sessionQuery && collaboration.status === "idle" && !collaboration.isCollaborative) {
+    if (
+      sessionQuery &&
+      collaboration.status === "idle" &&
+      !collaboration.isCollaborative &&
+      joinedCodeRef.current !== sessionQuery
+    ) {
+      joinedCodeRef.current = sessionQuery
       void collaboration.joinSession(sessionQuery)
     }
-  }, [sessionQuery, collaboration])
+  }, [
+    sessionQuery,
+    collaboration.status,
+    collaboration.isCollaborative,
+    collaboration.joinSession,
+  ])
 
   const totalCartQty = useMemo(
     () => cartItems.reduce((sum, ci) => sum + ci.quantity, 0),
@@ -131,10 +145,22 @@ function HomePageContent() {
           {/* Guest joining overlay */}
           <AnimatePresence>
             {collaboration.isGuest &&
-              collaboration.status === "connecting" &&
+              (collaboration.status === "connecting" || collaboration.status === "error") &&
               collaboration.sessionId && (
                 <JoiningSessionOverlay
                   sessionId={collaboration.sessionId}
+                  status={collaboration.status}
+                  errorMessage={collaboration.errorMessage}
+                  onDismiss={() => {
+                    collaboration.leaveSession()
+                    joinedCodeRef.current = null
+                    router.replace(pathname)
+                  }}
+                  onRetry={() => {
+                    if (collaboration.sessionId) {
+                      void collaboration.joinSession(collaboration.sessionId)
+                    }
+                  }}
                   t={t}
                 />
               )}

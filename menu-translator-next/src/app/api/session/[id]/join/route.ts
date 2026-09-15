@@ -29,6 +29,7 @@ export async function POST(
       sessionId: result.session.id,
       hostPeerId: result.session.hostPeerId,
       hostName: result.session.hostName,
+      menuData: result.session.menuData,
       cartItems: result.session.cartItems,
       cartVersion: result.session.cartVersion,
       peerCount: Object.keys(result.session.peers).length + 1, // Host + all peers

@@ -23,6 +23,7 @@ export function useCollaborativeSession({
   const [peerCount, setPeerCount] = useState<number>(1)
   const [qrOpen, setQrOpen] = useState(false)
   const [toastMessage, setToastMessage] = useState<string | null>(null)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
   const hostManagerRef = useRef<HostSessionManager | null>(null)
   const guestManagerRef = useRef<GuestSessionManager | null>(null)
@@ -38,6 +39,7 @@ export function useCollaborativeSession({
   const startSession = useCallback(
     async (menuData: MenuData, initialCart: CartItem[]) => {
       setStatus("creating")
+      setErrorMessage(null)
       try {
         const res = await fetch("/api/session/create", {
           method: "POST",
@@ -45,6 +47,8 @@ export function useCollaborativeSession({
           body: JSON.stringify({
             hostPeerId: myPeerIdRef.current,
             hostName: "Host",
+            menuData,
+            initialCart,
           }),
         })
 
@@ -88,8 +92,10 @@ export function useCollaborativeSession({
         )
         hostManagerRef.current = manager
       } catch (err) {
+        const msg = err instanceof Error ? err.message : "Failed to create session"
         console.error("[useCollaborativeSession] startSession error:", err)
         setStatus("error")
+        setErrorMessage(msg)
       }
     },
     [onCartUpdated, showToast],
@@ -102,6 +108,7 @@ export function useCollaborativeSession({
       setSessionId(cleanCode)
       setRole("guest")
       setStatus("connecting")
+      setErrorMessage(null)
 
       if (guestManagerRef.current) {
         guestManagerRef.current.destroy()
@@ -124,8 +131,11 @@ export function useCollaborativeSession({
           onPeerCountChange: (count) => {
             setPeerCount(count)
           },
-          onStatusChange: (newStatus) => {
+          onStatusChange: (newStatus, err) => {
             setStatus(newStatus)
+            if (err) {
+              setErrorMessage(err)
+            }
           },
           onToastNotification: showToast,
         },
@@ -192,6 +202,7 @@ export function useCollaborativeSession({
     setJoinUrl("")
     setPeerCount(1)
     setQrOpen(false)
+    setErrorMessage(null)
   }, [role, sessionId])
 
   // Warn host before closing tab while guests are connected
@@ -222,6 +233,7 @@ export function useCollaborativeSession({
     qrOpen,
     setQrOpen,
     toastMessage,
+    errorMessage,
     isHost: role === "host",
     isGuest: role === "guest",
     isCollaborative: role !== "none",

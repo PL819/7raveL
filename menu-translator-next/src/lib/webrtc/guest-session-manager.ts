@@ -19,6 +19,7 @@ export interface GuestSessionManagerCallbacks {
   onPeerCountChange: (peerCount: number) => void;
   onStatusChange: (
     status: "connecting" | "connected" | "disconnected" | "error",
+    errorMessage?: string,
   ) => void;
   onToastNotification?: (message: string) => void;
 }
@@ -68,37 +69,51 @@ export class GuestSessionManager {
       if (!res.ok) {
         const err = await res
           .json()
-          .catch(() => ({ message: "Room not found" }));
+          .catch(() => ({ message: "Table session not found or has expired." }));
         throw new Error(err.message || "Could not join session.");
       }
 
       const joinData = (await res.json()) as {
         hostPeerId: string;
+        hostName?: string;
+        menuData?: MenuData;
         peerCount: number;
         cartItems: CartItem[];
         cartVersion: number;
       };
 
       this.hostPeerId = joinData.hostPeerId;
+      this.cartVersion = joinData.cartVersion || 0;
       this.callbacks.onPeerCountChange(joinData.peerCount);
+
+      // Hydrate menuData and cart immediately from persisted session
+      if (joinData.menuData) {
+        this.callbacks.onSessionInit({
+          menuData: joinData.menuData,
+          cartItems: joinData.cartItems || [],
+          cartVersion: joinData.cartVersion || 0,
+          peerCount: joinData.peerCount,
+        });
+      }
 
       // 2. Setup WebRTC if supported
       if (isWebRTCSupported()) {
         await this.setupWebRTC();
         this.startSignalingPolling();
 
-        // Fallback timer: If WebRTC hasn't connected in 4 seconds, activate server relay
+        // Fallback timer: If WebRTC hasn't connected in 4.5 seconds, activate server relay
         this.webrtcTimeoutTimer = setTimeout(() => {
           if (!this.dc || this.dc.readyState !== "open") {
             this.activateRelayFallback();
           }
-        }, 4000);
+        }, 4500);
       } else {
         this.activateRelayFallback();
       }
     } catch (err) {
-      console.error("[GuestManager] Failed to start:", err);
-      this.callbacks.onStatusChange("error");
+      const msg = err instanceof Error ? err.message : "Could not join session.";
+      console.error("[GuestManager] Failed to start:", msg);
+      this.callbacks.onStatusChange("error", msg);
     }
   }
 
@@ -169,9 +184,10 @@ export class GuestSessionManager {
   }
 
   private startSignalingPolling(): void {
+    if (this.pollingInterval) clearInterval(this.pollingInterval);
     this.pollingInterval = setInterval(() => {
       void this.pollSignals();
-    }, 500);
+    }, 1000);
   }
 
   private isPollingSignals = false;
@@ -282,12 +298,17 @@ export class GuestSessionManager {
     this.callbacks.onStatusChange("connected");
 
     // Stop fast signaling polling if DC didn't open
-    if (this.pollingInterval) clearInterval(this.pollingInterval);
+    if (this.pollingInterval) {
+      clearInterval(this.pollingInterval);
+      this.pollingInterval = null;
+    }
 
-    // Start 500ms relay polling
-    this.relayInterval = setInterval(() => {
-      void this.pollRelaySync();
-    }, 500);
+    // Start 1500ms relay polling
+    if (!this.relayInterval && !this.isDestroyed) {
+      this.relayInterval = setInterval(() => {
+        void this.pollRelaySync();
+      }, 1500);
+    }
   }
 
   private isPollingRelay = false;

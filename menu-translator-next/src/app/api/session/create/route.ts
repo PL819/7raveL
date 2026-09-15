@@ -10,7 +10,10 @@ export async function POST(request: NextRequest) {
     const hostPeerId = body.hostPeerId || "host-" + Math.random().toString(36).slice(2, 9)
     const hostName = body.hostName || "Host"
 
-    const session = await sessionStore.createSession(hostPeerId, hostName)
+    const menuData = body.menuData
+    const initialCart = body.initialCart || []
+
+    const session = await sessionStore.createSession(hostPeerId, hostName, menuData, initialCart)
     const localIp = getLocalIpAddress()
 
     // Determine origin from request or local IP
@@ -25,6 +28,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       sessionId: session.id,
       hostPeerId: session.hostPeerId,
+      menuData: session.menuData,
       localIp,
       joinUrl: wifiJoinUrl,
       currentOriginJoinUrl,
