@@ -7,50 +7,19 @@ export type SessionConnectionStatus =
   | "creating"
   | "connecting"
   | "connected"
-  | "reconnecting"
   | "disconnected"
   | "error"
-
-export type TransportMode = "webrtc" | "relay"
 
 export interface SessionPeerInfo {
   peerId: string
   name: string
   joinedAt: number
-  transport: TransportMode
 }
 
-export interface IceCandidatePayload {
-  candidate: string
-  sdpMid?: string | null
-  sdpMLineIndex?: number | null
-}
-
-export interface SignalingMessage {
-  id: string
-  sessionId: string
-  fromPeerId: string
-  toPeerId: string
-  type: "offer" | "answer" | "candidate" | "peer_joined" | "peer_left"
-  sdp?: string
-  candidate?: IceCandidatePayload
-  peerName?: string
-  timestamp: number
-}
-
-// WebRTC DataChannel wire protocol messages
-export interface SessionInitMessage {
-  type: "SESSION_INIT"
-  sessionId: string
-  hostPeerId: string
-  menuData: MenuData
-  cartItems: CartItem[]
-  cartVersion: number
-  peerCount: number
-}
-
+// Cart action sent from any participant to the server
 export interface CartActionMessage {
   type: "CART_ACTION"
+  actionId: string
   action: "ADD" | "DECREMENT"
   item?: MenuItem
   itemId?: string
@@ -58,6 +27,7 @@ export interface CartActionMessage {
   senderName: string
 }
 
+// Authoritative cart state broadcast from server to all participants
 export interface CartSyncMessage {
   type: "CART_SYNC"
   cartItems: CartItem[]
@@ -75,14 +45,7 @@ export interface PeerPresenceMessage {
   peerNames: string[]
 }
 
-export interface SessionTerminatedMessage {
-  type: "SESSION_TERMINATED"
-  reason?: string
-}
-
 export type CollaborativeWireMessage =
-  | SessionInitMessage
   | CartActionMessage
   | CartSyncMessage
   | PeerPresenceMessage
-  | SessionTerminatedMessage

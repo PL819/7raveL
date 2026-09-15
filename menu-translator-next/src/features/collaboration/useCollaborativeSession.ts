@@ -4,8 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import { generateId } from "@/lib/generate-id"
 import type { CartItem, MenuData, MenuItem } from "@/types/menu"
 import type { SessionConnectionStatus, SessionRole } from "@/types/session"
-import { HostSessionManager } from "@/lib/webrtc/host-session-manager"
-import { GuestSessionManager } from "@/lib/webrtc/guest-session-manager"
+import { SessionSyncManager } from "@/lib/sync/session-sync-manager"
 
 interface UseCollaborativeSessionOptions {
   onMenuReceived: (menu: MenuData) => void
@@ -25,8 +24,7 @@ export function useCollaborativeSession({
   const [toastMessage, setToastMessage] = useState<string | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
-  const hostManagerRef = useRef<HostSessionManager | null>(null)
-  const guestManagerRef = useRef<GuestSessionManager | null>(null)
+  const syncManagerRef = useRef<SessionSyncManager | null>(null)
   const myPeerIdRef = useRef<string>(generateId())
 
   // Show transient toast
@@ -56,16 +54,9 @@ export function useCollaborativeSession({
 
         const data = (await res.json()) as {
           sessionId: string
-          joinUrl: string
-          currentOriginJoinUrl?: string
         }
 
-        // Prefer joinUrl (wifi IP) for local testing so phones can scan and connect.
-        // Prefer currentOriginJoinUrl for production (Vercel) since the server IP is unreachable.
-        const bestUrl =
-          typeof window !== "undefined" && window.location.hostname !== "localhost"
-            ? `${window.location.origin}/?session=${data.sessionId}`
-            : data.joinUrl
+        const bestUrl = `${window.location.origin}/?session=${data.sessionId}`
 
         setSessionId(data.sessionId)
         setJoinUrl(bestUrl)
@@ -74,23 +65,28 @@ export function useCollaborativeSession({
         setPeerCount(1)
         setQrOpen(true)
 
-        // Instantiate Host Manager
-        const manager = new HostSessionManager(
-          data.sessionId,
-          myPeerIdRef.current,
-          menuData,
-          initialCart,
-          {
-            onCartChange: (items) => {
+        // Instantiate sync manager for host
+        const manager = new SessionSyncManager({
+          sessionId: data.sessionId,
+          peerId: myPeerIdRef.current,
+          peerName: "Host",
+          initialCartVersion: 0,
+          callbacks: {
+            onCartSync: (items) => {
               onCartUpdated(items)
             },
             onPeerCountChange: (count) => {
               setPeerCount(count)
             },
+            onStatusChange: (newStatus, err) => {
+              setStatus(newStatus)
+              if (err) setErrorMessage(err)
+            },
             onToastNotification: showToast,
           },
-        )
-        hostManagerRef.current = manager
+        })
+        syncManagerRef.current = manager
+        manager.start()
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Failed to create session"
         console.error("[useCollaborativeSession] startSession error:", err)
@@ -110,39 +106,74 @@ export function useCollaborativeSession({
       setStatus("connecting")
       setErrorMessage(null)
 
-      if (guestManagerRef.current) {
-        guestManagerRef.current.destroy()
+      // Destroy any previous manager
+      if (syncManagerRef.current) {
+        syncManagerRef.current.destroy()
+        syncManagerRef.current = null
       }
 
-      const manager = new GuestSessionManager(
-        cleanCode,
-        myPeerIdRef.current,
-        "Diner " + Math.floor(Math.random() * 900 + 100),
-        {
-          onSessionInit: (init) => {
-            onMenuReceived(init.menuData)
-            onCartUpdated(init.cartItems)
-            setPeerCount(init.peerCount)
-            setStatus("connected")
-          },
-          onCartSync: (items) => {
-            onCartUpdated(items)
-          },
-          onPeerCountChange: (count) => {
-            setPeerCount(count)
-          },
-          onStatusChange: (newStatus, err) => {
-            setStatus(newStatus)
-            if (err) {
-              setErrorMessage(err)
-            }
-          },
-          onToastNotification: showToast,
-        },
-      )
+      try {
+        // Join via API to register as peer and get initial state
+        const res = await fetch(`/api/session/${cleanCode}/join`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            peerId: myPeerIdRef.current,
+            peerName: "Diner " + Math.floor(Math.random() * 900 + 100),
+          }),
+        })
 
-      guestManagerRef.current = manager
-      await manager.start()
+        if (!res.ok) {
+          const err = await res
+            .json()
+            .catch(() => ({ message: "Table session not found or has expired." }))
+          throw new Error(err.message || "Could not join session.")
+        }
+
+        const joinData = (await res.json()) as {
+          hostPeerId: string
+          menuData?: MenuData
+          cartItems: CartItem[]
+          cartVersion: number
+          peerCount: number
+        }
+
+        // Hydrate menu and cart immediately
+        if (joinData.menuData) {
+          onMenuReceived(joinData.menuData)
+        }
+        onCartUpdated(joinData.cartItems || [])
+        setPeerCount(joinData.peerCount)
+        setStatus("connected")
+
+        // Start sync polling
+        const manager = new SessionSyncManager({
+          sessionId: cleanCode,
+          peerId: myPeerIdRef.current,
+          peerName: "Diner " + Math.floor(Math.random() * 900 + 100),
+          initialCartVersion: joinData.cartVersion || 0,
+          callbacks: {
+            onCartSync: (items) => {
+              onCartUpdated(items)
+            },
+            onPeerCountChange: (count) => {
+              setPeerCount(count)
+            },
+            onStatusChange: (newStatus, err) => {
+              setStatus(newStatus)
+              if (err) setErrorMessage(err)
+            },
+            onToastNotification: showToast,
+          },
+        })
+        syncManagerRef.current = manager
+        manager.start()
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "Could not join session."
+        console.error("[useCollaborativeSession] joinSession error:", err)
+        setStatus("error")
+        setErrorMessage(msg)
+      }
     },
     [onCartUpdated, onMenuReceived, showToast],
   )
@@ -150,44 +181,32 @@ export function useCollaborativeSession({
   // 3. Add to Cart action dispatcher
   const dispatchAddToCart = useCallback(
     (item: MenuItem): boolean => {
-      if (role === "host" && hostManagerRef.current) {
-        hostManagerRef.current.addItem(item)
-        return true
-      }
-      if (role === "guest" && guestManagerRef.current) {
-        guestManagerRef.current.addItem(item)
+      if (syncManagerRef.current) {
+        syncManagerRef.current.addItem(item)
         return true
       }
       return false
     },
-    [role],
+    [],
   )
 
   // 4. Decrement Cart action dispatcher
   const dispatchDecrementCart = useCallback(
     (itemId: string): boolean => {
-      if (role === "host" && hostManagerRef.current) {
-        hostManagerRef.current.decrementItem(itemId)
-        return true
-      }
-      if (role === "guest" && guestManagerRef.current) {
-        guestManagerRef.current.decrementItem(itemId)
+      if (syncManagerRef.current) {
+        syncManagerRef.current.decrementItem(itemId)
         return true
       }
       return false
     },
-    [role],
+    [],
   )
 
   // 5. Leave / Terminate session
   const leaveSession = useCallback(() => {
-    if (hostManagerRef.current) {
-      hostManagerRef.current.destroy()
-      hostManagerRef.current = null
-    }
-    if (guestManagerRef.current) {
-      guestManagerRef.current.destroy()
-      guestManagerRef.current = null
+    if (syncManagerRef.current) {
+      syncManagerRef.current.destroy()
+      syncManagerRef.current = null
     }
 
     if (role === "host" && sessionId) {
@@ -219,8 +238,7 @@ export function useCollaborativeSession({
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (hostManagerRef.current) hostManagerRef.current.destroy()
-      if (guestManagerRef.current) guestManagerRef.current.destroy()
+      if (syncManagerRef.current) syncManagerRef.current.destroy()
     }
   }, [])
 

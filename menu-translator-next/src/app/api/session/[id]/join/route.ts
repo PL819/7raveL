@@ -32,7 +32,7 @@ export async function POST(
       menuData: result.session.menuData,
       cartItems: result.session.cartItems,
       cartVersion: result.session.cartVersion,
-      peerCount: Object.keys(result.session.peers).length + 1, // Host + all peers
+      peerCount: Object.keys(result.session.peers).length + 1,
     })
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to join session"

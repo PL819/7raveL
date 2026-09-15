@@ -1,10 +1,9 @@
 import { Redis } from "@upstash/redis"
-import type { CartItem, MenuData } from "@/types/menu"
+import type { CartItem, MenuData, MenuItem } from "@/types/menu"
 import type {
   CartActionMessage,
   CartSyncMessage,
   SessionPeerInfo,
-  SignalingMessage,
 } from "@/types/session"
 import { generateId } from "@/lib/generate-id"
 
@@ -26,34 +25,14 @@ const redis = new Redis({
 })
 
 const EXPIRY_SECONDS = 3 * 60 * 60 // 3 hours
-const MEMORY_CACHE_TTL_MS = 2000 // 2-second in-memory cache to mitigate parallel read floods
-
-interface MemorySessionState {
-  session: ServerSessionRecord
-  cachedAt: number
-}
 
 class SessionStore {
-  // In-memory fallback and short-term read cache
-  private memorySessions = new Map<string, MemorySessionState>()
-  private memorySignalQueues = new Map<string, SignalingMessage[]>()
-  private memoryRelayActions = new Map<string, CartActionMessage[]>()
-  private memoryRelaySyncs = new Map<string, CartSyncMessage>()
-
   private getSessionKey(id: string): string {
     return `session:${id.toUpperCase().trim()}`
   }
 
-  private getSignalKey(id: string, peerId: string): string {
-    return `session:${id.toUpperCase().trim()}:sig:${peerId}`
-  }
-
-  private getActionsKey(id: string): string {
-    return `session:${id.toUpperCase().trim()}:actions`
-  }
-
-  private getCartKey(id: string): string {
-    return `session:${id.toUpperCase().trim()}:cart`
+  private getDedupKey(id: string, actionId: string): string {
+    return `session:${id.toUpperCase().trim()}:dedup:${actionId}`
   }
 
   private generateRoomCode(): string {
@@ -74,10 +53,10 @@ class SessionStore {
     let id = this.generateRoomCode()
 
     // Check collision
-    let existing = await this.getSession(id).catch(() => undefined)
+    let existing = await this.getSession(id)
     while (existing) {
       id = this.generateRoomCode()
-      existing = await this.getSession(id).catch(() => undefined)
+      existing = await this.getSession(id)
     }
 
     const now = Date.now()
@@ -93,55 +72,20 @@ class SessionStore {
       lastActiveAt: now,
     }
 
-    // Save in memory
-    this.memorySessions.set(id, { session, cachedAt: now })
-
-    // Save in Redis
-    try {
-      const pipeline = redis.pipeline()
-      pipeline.set(this.getSessionKey(id), session, { ex: EXPIRY_SECONDS })
-      if (initialCart.length > 0) {
-        pipeline.set(
-          this.getCartKey(id),
-          {
-            type: "CART_SYNC",
-            cartItems: initialCart,
-            cartVersion: 0,
-          } as CartSyncMessage,
-          { ex: EXPIRY_SECONDS },
-        )
-      }
-      await pipeline.exec()
-    } catch (err) {
-      console.warn("[SessionStore] Redis createSession fallback to memory:", err)
-    }
-
+    await redis.set(this.getSessionKey(id), session, { ex: EXPIRY_SECONDS })
     return session
   }
 
   public async getSession(id: string): Promise<ServerSessionRecord | undefined> {
     const cleanId = id.toUpperCase().trim()
-    const now = Date.now()
-
-    // Check short-lived in-memory cache first to avoid slamming Redis on every poll
-    const cached = this.memorySessions.get(cleanId)
-    if (cached && now - cached.cachedAt < MEMORY_CACHE_TTL_MS) {
-      return cached.session
-    }
 
     try {
       const session = await redis.get<ServerSessionRecord>(this.getSessionKey(cleanId))
-      if (session) {
-        // Important: DO NOT write back to Redis here! Pure reads should not consume write quota or cause race conditions.
-        this.memorySessions.set(cleanId, { session, cachedAt: now })
-        return session
-      }
+      return session ?? undefined
     } catch (err) {
-      console.warn("[SessionStore] Redis getSession fallback to memory:", err)
+      console.error("[SessionStore] Redis getSession error:", err)
+      return undefined
     }
-
-    // Fallback to in-memory store
-    return cached?.session
   }
 
   public async joinSession(
@@ -159,226 +103,146 @@ class SessionStore {
       peerId,
       name: peerName,
       joinedAt: Date.now(),
-      transport: "webrtc",
     }
     session.lastActiveAt = Date.now()
 
-    // Update in-memory cache immediately
-    this.memorySessions.set(cleanId, { session, cachedAt: Date.now() })
-
-    // Persist updated peers to Redis
     try {
       await redis.set(this.getSessionKey(cleanId), session, { ex: EXPIRY_SECONDS })
     } catch (err) {
-      console.warn("[SessionStore] Redis joinSession set failed, relying on memory:", err)
+      console.error("[SessionStore] Redis joinSession set failed:", err)
+      return { success: false, error: "Failed to persist join." }
     }
-
-    // Notify host that guest joined
-    await this.pushSignal(cleanId, {
-      id: generateId(),
-      sessionId: cleanId,
-      fromPeerId: peerId,
-      toPeerId: session.hostPeerId,
-      type: "peer_joined",
-      peerName,
-      timestamp: Date.now(),
-    })
 
     return { success: true, session }
   }
 
-  public async pushSignal(
+  /**
+   * Atomically apply a cart action (ADD or DECREMENT) server-side.
+   * Returns the updated cart state, or null if session not found.
+   * Deduplicates by actionId to prevent double-processing.
+   */
+  public async applyCartAction(
     sessionId: string,
-    signal: Omit<SignalingMessage, "id" | "timestamp"> & {
-      id?: string
-      timestamp?: number
-    },
-  ): Promise<boolean> {
+    action: CartActionMessage,
+  ): Promise<{ cartItems: CartItem[]; cartVersion: number; notification?: CartSyncMessage["notification"] } | null> {
     const cleanId = sessionId.toUpperCase().trim()
-    const fullSignal: SignalingMessage = {
-      id: signal.id ?? generateId(),
-      timestamp: signal.timestamp ?? Date.now(),
-      sessionId: cleanId,
-      fromPeerId: signal.fromPeerId,
-      toPeerId: signal.toPeerId,
-      type: signal.type,
-      sdp: signal.sdp,
-      candidate: signal.candidate,
-      peerName: signal.peerName,
+
+    // Deduplication: SET NX returns truthy only if the key was newly created
+    if (action.actionId) {
+      try {
+        const isNew = await redis.set(this.getDedupKey(cleanId, action.actionId), 1, {
+          ex: 60, // 60-second dedup window
+          nx: true,
+        })
+        if (!isNew) {
+          // Already processed this action — return current state
+          const session = await this.getSession(cleanId)
+          if (!session) return null
+          return { cartItems: session.cartItems, cartVersion: session.cartVersion }
+        }
+      } catch (err) {
+        console.warn("[SessionStore] Dedup check failed, processing anyway:", err)
+      }
     }
 
-    // Mirror to memory queue
-    const memKey = `${cleanId}:${signal.toPeerId}`
-    const memQueue = this.memorySignalQueues.get(memKey) || []
-    memQueue.push(fullSignal)
-    this.memorySignalQueues.set(memKey, memQueue)
+    const session = await this.getSession(cleanId)
+    if (!session) return null
 
-    // Atomic push to isolated Redis list (no read-modify-write!)
-    try {
-      const queueKey = this.getSignalKey(cleanId, signal.toPeerId)
-      const pipeline = redis.pipeline()
-      pipeline.rpush(queueKey, fullSignal)
-      pipeline.expire(queueKey, EXPIRY_SECONDS)
-      await pipeline.exec()
-      return true
-    } catch (err) {
-      console.warn("[SessionStore] Redis pushSignal fallback to memory:", err)
-      return true
-    }
-  }
+    let cartItems = [...session.cartItems]
+    let notification: CartSyncMessage["notification"] | undefined
 
-  public async pollSignals(sessionId: string, peerId: string): Promise<SignalingMessage[]> {
-    const cleanId = sessionId.toUpperCase().trim()
-    const memKey = `${cleanId}:${peerId}`
-    const memSignals = this.memorySignalQueues.get(memKey) || []
-    this.memorySignalQueues.set(memKey, [])
-
-    try {
-      const queueKey = this.getSignalKey(cleanId, peerId)
-      const pipeline = redis.pipeline()
-      pipeline.lrange(queueKey, 0, -1)
-      pipeline.del(queueKey)
-      const results = await pipeline.exec<[unknown[], number]>()
-      const rawRedisSignals = (results?.[0] as unknown[]) || []
-
-      // Normalize any stringified items from Redis
-      const redisSignals: SignalingMessage[] = rawRedisSignals.map((item) =>
-        typeof item === "string" ? (JSON.parse(item) as SignalingMessage) : (item as SignalingMessage),
-      )
-
-      // Deduplicate signals between Redis and Memory by id
-      const seenIds = new Set<string>()
-      const combined: SignalingMessage[] = []
-
-      for (const sig of [...redisSignals, ...memSignals]) {
-        if (!seenIds.has(sig.id)) {
-          seenIds.add(sig.id)
-          combined.push(sig)
+    if (action.action === "ADD" && action.item) {
+      const existingIndex = cartItems.findIndex((ci) => ci.item.id === action.item!.id)
+      if (existingIndex >= 0) {
+        cartItems = cartItems.map((ci, idx) =>
+          idx === existingIndex ? { ...ci, quantity: ci.quantity + 1 } : ci,
+        )
+      } else {
+        cartItems = [...cartItems, { item: action.item, quantity: 1 }]
+      }
+      notification = {
+        senderName: action.senderName,
+        action: "added",
+        itemName: action.item.translatedName,
+      }
+    } else if (action.action === "DECREMENT" && action.itemId) {
+      const target = cartItems.find((ci) => ci.item.id === action.itemId)
+      if (target) {
+        if (target.quantity > 1) {
+          cartItems = cartItems.map((ci) =>
+            ci.item.id === action.itemId ? { ...ci, quantity: ci.quantity - 1 } : ci,
+          )
+        } else {
+          cartItems = cartItems.filter((ci) => ci.item.id !== action.itemId)
+        }
+        notification = {
+          senderName: action.senderName,
+          action: "removed",
+          itemName: target.item.translatedName,
         }
       }
-
-      return combined
-    } catch (err) {
-      console.warn("[SessionStore] Redis pollSignals fallback to memory:", err)
-      return memSignals
     }
-  }
 
-  public async pushRelayCartAction(sessionId: string, action: CartActionMessage): Promise<boolean> {
-    const cleanId = sessionId.toUpperCase().trim()
-
-    // Mirror to memory
-    const memActions = this.memoryRelayActions.get(cleanId) || []
-    memActions.push(action)
-    if (memActions.length > 50) memActions.shift()
-    this.memoryRelayActions.set(cleanId, memActions)
-
-    // Atomic push to Redis list
-    try {
-      const key = this.getActionsKey(cleanId)
-      const pipeline = redis.pipeline()
-      pipeline.rpush(key, action)
-      pipeline.expire(key, EXPIRY_SECONDS)
-      await pipeline.exec()
-      return true
-    } catch (err) {
-      console.warn("[SessionStore] Redis pushRelayCartAction fallback to memory:", err)
-      return true
-    }
-  }
-
-  public async pollRelayCartActions(sessionId: string): Promise<CartActionMessage[]> {
-    const cleanId = sessionId.toUpperCase().trim()
-    const memActions = this.memoryRelayActions.get(cleanId) || []
-    this.memoryRelayActions.set(cleanId, [])
+    const newVersion = session.cartVersion + 1
+    session.cartItems = cartItems
+    session.cartVersion = newVersion
+    session.lastActiveAt = Date.now()
 
     try {
-      const key = this.getActionsKey(cleanId)
-      const pipeline = redis.pipeline()
-      pipeline.lrange(key, 0, -1)
-      pipeline.del(key)
-      const results = await pipeline.exec<[unknown[], number]>()
-      const rawActions = (results?.[0] as unknown[]) || []
-
-      const redisActions: CartActionMessage[] = rawActions.map((item) =>
-        typeof item === "string" ? (JSON.parse(item) as CartActionMessage) : (item as CartActionMessage),
-      )
-
-      return [...redisActions, ...memActions]
+      await redis.set(this.getSessionKey(cleanId), session, { ex: EXPIRY_SECONDS })
     } catch (err) {
-      console.warn("[SessionStore] Redis pollRelayCartActions fallback to memory:", err)
-      return memActions
+      console.error("[SessionStore] Failed to persist cart update:", err)
     }
+
+    return { cartItems, cartVersion: newVersion, notification }
   }
 
-  public async pushRelayCartSync(sessionId: string, sync: CartSyncMessage): Promise<boolean> {
+  /**
+   * Returns the current cart state if the version is newer than `sinceVersion`.
+   * Returns null if no update is available.
+   */
+  public async getCartSync(
+    sessionId: string,
+    sinceVersion: number,
+  ): Promise<{
+    cartItems: CartItem[]
+    cartVersion: number
+    peerCount: number
+    peerNames: string[]
+  } | null> {
     const cleanId = sessionId.toUpperCase().trim()
+    const session = await this.getSession(cleanId)
+    if (!session) return null
 
-    // Update memory
-    this.memoryRelaySyncs.set(cleanId, sync)
+    const peerCount = Object.keys(session.peers).length + 1 // +1 for host
+    const peerNames = [session.hostName, ...Object.values(session.peers).map((p) => p.name)]
 
-    const cached = this.memorySessions.get(cleanId)
-    if (cached) {
-      cached.session.cartItems = sync.cartItems
-      cached.session.cartVersion = sync.cartVersion
+    if (session.cartVersion > sinceVersion) {
+      return {
+        cartItems: session.cartItems,
+        cartVersion: session.cartVersion,
+        peerCount,
+        peerNames,
+      }
     }
 
-    try {
-      await redis.set(this.getCartKey(cleanId), sync, { ex: EXPIRY_SECONDS })
-      return true
-    } catch (err) {
-      console.warn("[SessionStore] Redis pushRelayCartSync fallback to memory:", err)
-      return true
+    // No cart change, but still return presence info
+    return {
+      cartItems: session.cartItems,
+      cartVersion: session.cartVersion,
+      peerCount,
+      peerNames,
     }
-  }
-
-  public async pollRelayCartSyncs(sessionId: string, lastVersion: number): Promise<CartSyncMessage | null> {
-    const cleanId = sessionId.toUpperCase().trim()
-
-    let sync: CartSyncMessage | null = null
-    try {
-      sync = await redis.get<CartSyncMessage>(this.getCartKey(cleanId))
-    } catch (err) {
-      console.warn("[SessionStore] Redis pollRelayCartSyncs fallback to memory:", err)
-    }
-
-    if (!sync) {
-      sync = this.memoryRelaySyncs.get(cleanId) || null
-    }
-
-    if (sync && sync.cartVersion > lastVersion) {
-      return sync
-    }
-
-    return null
   }
 
   public async destroySession(id: string): Promise<void> {
     const cleanId = id.toUpperCase().trim()
-    this.memorySessions.delete(cleanId)
-    this.memoryRelayActions.delete(cleanId)
-    this.memoryRelaySyncs.delete(cleanId)
-
     try {
-      const pipeline = redis.pipeline()
-      pipeline.del(this.getSessionKey(cleanId))
-      pipeline.del(this.getActionsKey(cleanId))
-      pipeline.del(this.getCartKey(cleanId))
-      await pipeline.exec()
+      await redis.del(this.getSessionKey(cleanId))
     } catch (err) {
       console.warn("[SessionStore] Redis destroySession error:", err)
     }
   }
 }
 
-// Preserve session store on globalThis for Next.js hot module reload in development
-const globalForSession = globalThis as unknown as {
-  __sharedSessionStore?: SessionStore
-}
-
-export const sessionStore =
-  globalForSession.__sharedSessionStore ?? new SessionStore()
-
-if (process.env.NODE_ENV !== "production") {
-  globalForSession.__sharedSessionStore = sessionStore
-}
+export const sessionStore = new SessionStore()

@@ -1,7 +1,7 @@
 "use client"
 
-import { useMemo } from "react"
-import { generateQrMatrix } from "@/lib/qr-matrix"
+import { useEffect, useState } from "react"
+import QRCodeLib from "qrcode"
 import { cn } from "@/lib/utils"
 
 interface QRCodeProps {
@@ -16,36 +16,31 @@ export function QRCode({
   value,
   size = 220,
   className,
-  color = "currentColor",
-  backgroundColor = "transparent",
+  color = "#0f172a",
+  backgroundColor = "#ffffff",
 }: QRCodeProps) {
-  const { path, matrixSize } = useMemo(() => {
-    if (!value) return { path: "", matrixSize: 21 }
+  const [dataUrl, setDataUrl] = useState<string | null>(null)
 
-    try {
-      const matrix = generateQrMatrix(value)
-      const matrixSize = matrix.length
-      const quietZone = 2
-      let pathStr = ""
-
-      for (let r = 0; r < matrixSize; r++) {
-        for (let c = 0; c < matrixSize; c++) {
-          if (matrix[r][c]) {
-            const x = c + quietZone
-            const y = r + quietZone
-            pathStr += `M${x},${y}h1v1h-1z `
-          }
-        }
-      }
-
-      return { path: pathStr, matrixSize: matrixSize + quietZone * 2 }
-    } catch (err) {
-      console.error("[QRCode] Failed to generate matrix:", err)
-      return { path: "", matrixSize: 21 }
+  useEffect(() => {
+    if (!value) {
+      setDataUrl(null)
+      return
     }
-  }, [value])
 
-  if (!path) {
+    QRCodeLib.toDataURL(value, {
+      width: size * 2, // 2x for retina sharpness
+      margin: 2,
+      errorCorrectionLevel: "M",
+      color: { dark: color, light: backgroundColor },
+    })
+      .then(setDataUrl)
+      .catch((err) => {
+        console.error("[QRCode] Failed to generate:", err)
+        setDataUrl(null)
+      })
+  }, [value, size, color, backgroundColor])
+
+  if (!dataUrl) {
     return (
       <div
         style={{ width: size, height: size }}
@@ -60,19 +55,13 @@ export function QRCode({
   }
 
   return (
-    <svg
-      viewBox={`0 0 ${matrixSize} ${matrixSize}`}
+    <img
+      src={dataUrl}
+      alt={`QR Code for ${value}`}
       width={size}
       height={size}
-      className={cn("shape-rendering-crisp-edges", className)}
-      style={{ shapeRendering: "crispEdges" }}
-      aria-label={`QR Code for ${value}`}
-      role="img"
-    >
-      {backgroundColor !== "transparent" && (
-        <rect width={matrixSize} height={matrixSize} fill={backgroundColor} />
-      )}
-      <path d={path} fill={color} />
-    </svg>
+      className={cn("rounded", className)}
+      style={{ imageRendering: "pixelated" }}
+    />
   )
 }
