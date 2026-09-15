@@ -55,6 +55,24 @@ export interface UITranslations {
     title: string
     subtitle: string
   }
+  collaboration: {
+    orderTogether: string
+    sharedOrder: string
+    scanToJoin: string
+    scanInstructions: string
+    roomCode: string
+    copyLink: string
+    copied: string
+    waitingForGuests: string
+    dinersCount: (count: number) => string
+    joiningSession: string
+    syncingMenu: string
+    sessionActive: string
+    leaveSession: string
+    connected: string
+    connecting: string
+    close: string
+  }
 }
 
 const en: UITranslations = {
@@ -117,6 +135,26 @@ const en: UITranslations = {
   settings: {
     title: "Translation language",
     subtitle: "Menus will be translated into your chosen language.",
+  },
+  collaboration: {
+    orderTogether: "Order Together",
+    sharedOrder: "Shared Order",
+    scanToJoin: "Scan to Join Order",
+    scanInstructions:
+      "Point your phone camera at this QR code to join the table order in real time.",
+    roomCode: "Table Code",
+    copyLink: "Copy Link",
+    copied: "Copied!",
+    waitingForGuests: "Waiting for dining partners to scan…",
+    dinersCount: (count) =>
+      `${count} ${count === 1 ? "diner" : "diners"} connected`,
+    joiningSession: "Joining table order…",
+    syncingMenu: "Connecting to host & syncing menu…",
+    sessionActive: "Shared Table Active",
+    leaveSession: "Leave Session",
+    connected: "Connected",
+    connecting: "Connecting…",
+    close: "Close",
   },
 }
 
@@ -181,6 +219,25 @@ const fa: UITranslations = {
     title: "زبان ترجمه",
     subtitle: "منوها به زبان انتخابی شما ترجمه خواهند شد.",
   },
+  collaboration: {
+    orderTogether: "سفارش گروهی",
+    sharedOrder: "سفارش مشترک",
+    scanToJoin: "اسکن برای پیوستن",
+    scanInstructions:
+      "دوربین گوشی خود را برای پیوستن به سفارش زنده روی این کد QR بگیرید.",
+    roomCode: "کد میز",
+    copyLink: "کپی لینک",
+    copied: "کپی شد!",
+    waitingForGuests: "در انتظار اسکن هم‌میزی‌ها…",
+    dinersCount: (count) => `${count} نفر متصل`,
+    joiningSession: "در حال پیوستن به سفارش…",
+    syncingMenu: "اتصال به میزبان و همگام‌سازی منو…",
+    sessionActive: "سفارش مشترک فعال",
+    leaveSession: "خروج از گروه",
+    connected: "متصل",
+    connecting: "در حال اتصال…",
+    close: "بستن",
+  },
 }
 
 const zhTW: UITranslations = {
@@ -244,6 +301,25 @@ const zhTW: UITranslations = {
     title: "譯做咩語言？",
     subtitle: "餐牌會譯成你揀嘅語言。",
   },
+  collaboration: {
+    orderTogether: "一齊叫",
+    sharedOrder: "同枱叫緊",
+    scanToJoin: "掃 QR 碼一齊叫",
+    scanInstructions:
+      "用手機相機掃呢個 QR Code，入嚟一齊叫嘢食，實時夾單。",
+    roomCode: "枱號 Code",
+    copyLink: "複製 Link",
+    copied: "搞掂！已複製",
+    waitingForGuests: "等緊班友仔掃 Code…",
+    dinersCount: (count) => `有 ${count} 條友叫緊`,
+    joiningSession: "入緊張枱…",
+    syncingMenu: "同部機連線兼抄緊個餐牌…",
+    sessionActive: "一齊嗌緊嘢食",
+    leaveSession: "走先",
+    connected: "連到喇",
+    connecting: "連緊線…",
+    close: "閂咗佢",
+  },
 }
 
 const ru: UITranslations = {
@@ -306,6 +382,25 @@ const ru: UITranslations = {
   settings: {
     title: "Язык перевода",
     subtitle: "Меню будут переводиться на выбранный вами язык.",
+  },
+  collaboration: {
+    orderTogether: "Заказать вместе",
+    sharedOrder: "Общий заказ",
+    scanToJoin: "Сканируйте, чтобы присоединиться",
+    scanInstructions:
+      "Наведите камеру на QR-код, чтобы присоединиться к заказу в реальном времени.",
+    roomCode: "Код стола",
+    copyLink: "Копировать ссылку",
+    copied: "Скопировано!",
+    waitingForGuests: "Ожидание участников…",
+    dinersCount: (count) => `${count} участников`,
+    joiningSession: "Подключение к заказу…",
+    syncingMenu: "Синхронизация меню с организатором…",
+    sessionActive: "Общий стол активен",
+    leaveSession: "Покинуть стол",
+    connected: "Подключено",
+    connecting: "Подключение…",
+    close: "Закрыть",
   },
 }
 
@@ -374,6 +469,25 @@ const si: UITranslations = {
     title: "පරිවර්තන භාෂාව",
     subtitle: "මෙනු ඔබ තෝරාගත් භාෂාවට පරිවර්තනය කරනු ලැබේ.",
   },
+  collaboration: {
+    orderTogether: "එකට ඇණවුම් කරන්න",
+    sharedOrder: "හවුල් ඇණවුම",
+    scanToJoin: "එක්වීමට ස්කෑන් කරන්න",
+    scanInstructions:
+      "තථ්‍ය කාලීනව ඇණවුමට සම්බන්ධ වීමට ඔබගේ කැමරාව යොමු කරන්න.",
+    roomCode: "මේස කේතය",
+    copyLink: "සබැඳිය පිටපත් කරන්න",
+    copied: "පිටපත් කරන ලදී!",
+    waitingForGuests: "සම්බන්ධ වන තුරු රැඳී සිටිමින්…",
+    dinersCount: (count) => `සාමාජිකයින් ${count} දෙනෙක්`,
+    joiningSession: "ඇණවුමට සම්බන්ධ වෙමින්…",
+    syncingMenu: "මෙනුව සමමුහුර්ත වෙමින්…",
+    sessionActive: "හවුල් මේසය සක්‍රියයි",
+    leaveSession: "ඉවත් වන්න",
+    connected: "සම්බන්ධයි",
+    connecting: "සම්බන්ධ වෙමින්…",
+    close: "වසන්න",
+  },
 }
 
 const hi: UITranslations = {
@@ -440,6 +554,25 @@ const hi: UITranslations = {
   settings: {
     title: "अनुवाद की भाषा",
     subtitle: "मेनू आपकी चुनी हुई भाषा में अनुवादित किए जाएँगे।",
+  },
+  collaboration: {
+    orderTogether: "साथ में ऑर्डर करें",
+    sharedOrder: "साझा ऑर्डर",
+    scanToJoin: "जुड़ने के लिए स्कैन करें",
+    scanInstructions:
+      "ऑर्डर में रीयल-टाइम में शामिल होने के लिए अपना कैमरा इस क्यूआर कोड पर रखें।",
+    roomCode: "टेबल कोड",
+    copyLink: "लिंक कॉपी करें",
+    copied: "कॉपी किया गया!",
+    waitingForGuests: "साथियों के स्कैन करने की प्रतीक्षा…",
+    dinersCount: (count) => `${count} लोग जुड़े हैं`,
+    joiningSession: "ऑर्डर में शामिल हो रहे हैं…",
+    syncingMenu: "होस्ट से कनेक्ट और मेनू सिंक हो रहा है…",
+    sessionActive: "साझा टेबल सक्रिय",
+    leaveSession: "बाहर निकलें",
+    connected: "कनेक्टेड",
+    connecting: "कनेक्ट हो रहा है…",
+    close: "बंद करें",
   },
 }
 

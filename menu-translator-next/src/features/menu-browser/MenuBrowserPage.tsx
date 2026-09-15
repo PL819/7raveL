@@ -2,14 +2,16 @@
 
 import { useMemo, useState } from "react"
 import { AnimatePresence, motion } from "framer-motion"
-import { Minus, Plus, ShoppingCart } from "lucide-react"
+import { Minus, Plus, ShoppingCart, Users } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
+import { SessionStatusBadge } from "@/features/collaboration/SessionStatusBadge"
 import { getTranslations } from "@/lib/ui-translations"
 import { formatCurrency } from "@/lib/format-currency"
 import { cn } from "@/lib/utils"
 import type { CartItem, MenuData, MenuItem, TranslationLanguage } from "@/types/menu"
+import type { SessionConnectionStatus } from "@/types/session"
 
 interface MenuBrowserPageProps {
   menu: MenuData
@@ -18,6 +20,11 @@ interface MenuBrowserPageProps {
   onDecrementCart: (itemId: string) => void
   onViewCart: () => void
   language: TranslationLanguage
+  isCollaborative?: boolean
+  sessionStatus?: SessionConnectionStatus
+  sessionPeerCount?: number
+  onStartSession?: () => void
+  onOpenQr?: () => void
 }
 
 export function MenuBrowserPage({
@@ -27,6 +34,11 @@ export function MenuBrowserPage({
   onDecrementCart,
   onViewCart,
   language,
+  isCollaborative = false,
+  sessionStatus = "idle",
+  sessionPeerCount = 1,
+  onStartSession,
+  onOpenQr,
 }: MenuBrowserPageProps) {
   const [activeCategoryId, setActiveCategoryId] = useState(
     menu.categories[0]?.id ?? "",
@@ -52,14 +64,37 @@ export function MenuBrowserPage({
 
   return (
     <div className="flex h-full flex-col">
-      {/* Page title */}
-      <div className="shrink-0 px-4 pb-1 pt-5">
-        <h1 className="text-xl font-semibold">{t.browser.title}</h1>
-        {sourceLabel && (
-          <p className="mt-0.5 truncate text-xs text-muted-foreground">
-            {sourceLabel}
-          </p>
-        )}
+      {/* Page header with collaborative session trigger & badge */}
+      <div className="flex shrink-0 items-start justify-between gap-2 px-4 pb-1 pt-5">
+        <div className="min-w-0 flex-1">
+          <h1 className="text-xl font-semibold">{t.browser.title}</h1>
+          {sourceLabel && (
+            <p className="mt-0.5 truncate text-xs text-muted-foreground">
+              {sourceLabel}
+            </p>
+          )}
+        </div>
+
+        {isCollaborative && sessionStatus !== "idle" ? (
+          <SessionStatusBadge
+            status={sessionStatus}
+            peerCount={sessionPeerCount}
+            onClick={onOpenQr}
+          />
+        ) : onStartSession ? (
+          <motion.div whileTap={{ scale: 0.95 }}>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={onStartSession}
+              className="h-8 gap-1.5 rounded-full border-primary/25 bg-primary/5 px-3 text-xs font-semibold text-primary hover:bg-primary/10"
+            >
+              <Users className="size-3.5" aria-hidden="true" />
+              <span>{t.collaboration.orderTogether}</span>
+            </Button>
+          </motion.div>
+        ) : null}
       </div>
 
       {/* Category tab strip — full 44px touch targets */}

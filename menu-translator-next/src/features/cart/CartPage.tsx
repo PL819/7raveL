@@ -13,9 +13,11 @@ import {
   DrawerTitle,
   DrawerTrigger,
 } from "@/components/ui/drawer"
+import { SessionStatusBadge } from "@/features/collaboration/SessionStatusBadge"
 import { getTranslations } from "@/lib/ui-translations"
 import { formatCurrency } from "@/lib/format-currency"
 import type { CartItem, MenuItem, TranslationLanguage } from "@/types/menu"
+import type { SessionConnectionStatus } from "@/types/session"
 
 interface CartPageProps {
   cartItems: CartItem[]
@@ -24,6 +26,10 @@ interface CartPageProps {
   onDecrementCart: (itemId: string) => void
   onBack: () => void
   language: TranslationLanguage
+  isCollaborative?: boolean
+  sessionStatus?: SessionConnectionStatus
+  sessionPeerCount?: number
+  onOpenQr?: () => void
 }
 
 export function CartPage({
@@ -33,6 +39,10 @@ export function CartPage({
   onDecrementCart,
   onBack,
   language,
+  isCollaborative = false,
+  sessionStatus = "idle",
+  sessionPeerCount = 1,
+  onOpenQr,
 }: CartPageProps) {
   const t = getTranslations(language)
   const subtotal = useMemo(
@@ -56,12 +66,22 @@ export function CartPage({
       {/* Scrollable content */}
       <div className="flex-1 overflow-y-auto">
         {/* Page heading */}
-        <div className="px-4 pb-3 pt-5">
-          <h1 className="text-xl font-semibold">{t.cart.title}</h1>
-          {!isEmpty && (
-            <p className="mt-0.5 text-sm text-muted-foreground">
-              {totalQty} {totalQty === 1 ? t.cart.dish : t.cart.dishes}
-            </p>
+        <div className="flex items-start justify-between gap-2 px-4 pb-3 pt-5">
+          <div>
+            <h1 className="text-xl font-semibold">{t.cart.title}</h1>
+            {!isEmpty && (
+              <p className="mt-0.5 text-sm text-muted-foreground">
+                {totalQty} {totalQty === 1 ? t.cart.dish : t.cart.dishes}
+              </p>
+            )}
+          </div>
+
+          {isCollaborative && sessionStatus !== "idle" && (
+            <SessionStatusBadge
+              status={sessionStatus}
+              peerCount={sessionPeerCount}
+              onClick={onOpenQr}
+            />
           )}
         </div>
 
