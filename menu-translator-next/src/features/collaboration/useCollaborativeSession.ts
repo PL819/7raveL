@@ -20,8 +20,16 @@ export function useCollaborativeSession({
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [joinUrl, setJoinUrl] = useState<string>("")
   const [peerCount, setPeerCount] = useState<number>(1)
-  const [qrOpen, setQrOpen] = useState(false)
+  const [qrOpen, setQrOpenRaw] = useState(false)
   const [toastMessage, setToastMessage] = useState<string | null>(null)
+
+  // Wrap setQrOpen to trigger burst-mode polling when the QR drawer opens
+  const setQrOpen = useCallback((open: boolean) => {
+    setQrOpenRaw(open)
+    if (open && syncManagerRef.current) {
+      syncManagerRef.current.signalActivity()
+    }
+  }, [])
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
   const syncManagerRef = useRef<SessionSyncManager | null>(null)
@@ -77,6 +85,7 @@ export function useCollaborativeSession({
             },
             onPeerCountChange: (count) => {
               setPeerCount(count)
+              manager.signalActivity()
             },
             onStatusChange: (newStatus, err) => {
               setStatus(newStatus)
@@ -158,6 +167,7 @@ export function useCollaborativeSession({
             },
             onPeerCountChange: (count) => {
               setPeerCount(count)
+              manager.signalActivity()
             },
             onStatusChange: (newStatus, err) => {
               setStatus(newStatus)

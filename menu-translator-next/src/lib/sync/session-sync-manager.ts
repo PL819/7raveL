@@ -12,13 +12,25 @@ export interface SyncManagerCallbacks {
   onToastNotification?: (message: string) => void
 }
 
+// ── Polling constants ────────────────────────────────────
+
+/** Fast poll rate during the burst window after activity. */
+const ACTIVE_INTERVAL_MS = 600
+/** Slow poll rate when idle (no activity for BURST_WINDOW_MS). */
+const IDLE_INTERVAL_MS = 2000
+/** How long to stay in active/burst mode after the last activity signal. */
+const BURST_WINDOW_MS = 15_000
+
 /**
  * Unified session sync manager used by both host and guest roles.
  * Communicates with the server via REST endpoints:
  *   - POST /api/session/{id}/action  → submit cart mutations
  *   - GET  /api/session/{id}/sync    → poll for authoritative state
  *
- * The server (Redis) is the single source of truth for cart state.
+ * Features:
+ *   - Adaptive polling: 600ms during activity bursts, 2s when idle
+ *   - Page visibility: pauses polling when the tab is hidden
+ *   - Consecutive-error circuit breaker
  */
 export class SessionSyncManager {
   public sessionId: string
@@ -26,12 +38,20 @@ export class SessionSyncManager {
   public peerName: string
 
   private cartVersion = 0
-  private pollInterval: ReturnType<typeof setInterval> | null = null
+  private pollTimer: ReturnType<typeof setTimeout> | null = null
   private isDestroyed = false
   private isPolling = false
   private callbacks: SyncManagerCallbacks
   private consecutiveErrors = 0
   private static readonly MAX_CONSECUTIVE_ERRORS = 10
+
+  // ── Adaptive interval state ────────────────────────────
+  private lastActivityAt = 0
+  private currentIntervalMs = IDLE_INTERVAL_MS
+
+  // ── Visibility state ──────────────────────────────────
+  private handleVisibilityChange: (() => void) | null = null
+  private tabVisible = true
 
   constructor(opts: {
     sessionId: string
@@ -47,20 +67,35 @@ export class SessionSyncManager {
     this.callbacks = opts.callbacks
   }
 
-  /** Start polling for state updates at 1-second intervals. */
+  // ── Public API ─────────────────────────────────────────
+
+  /** Start polling for state updates and attach visibility listener. */
   public start(): void {
-    if (this.pollInterval) clearInterval(this.pollInterval)
+    this.attachVisibilityListener()
+    this.signalActivity() // Enter burst mode immediately on start
+    this.scheduleNextPoll(0) // Immediate first poll
+  }
 
-    this.pollInterval = setInterval(() => {
-      void this.poll()
-    }, 1000)
+  /**
+   * Signal that meaningful activity has occurred (cart action, join, QR open,
+   * remote version increment). Switches to the fast 600ms poll rate for 15s.
+   */
+  public signalActivity(): void {
+    this.lastActivityAt = Date.now()
+    const wasIdle = this.currentIntervalMs === IDLE_INTERVAL_MS
+    this.currentIntervalMs = ACTIVE_INTERVAL_MS
 
-    // Fire an immediate poll
-    void this.poll()
+    // If we were idle and the tab is visible, reschedule immediately
+    // to switch to the faster rate without waiting for the current
+    // slow-interval timer to fire.
+    if (wasIdle && this.tabVisible && !this.isDestroyed) {
+      this.scheduleNextPoll(0)
+    }
   }
 
   /** Submit an ADD action for a menu item. */
   public addItem(item: MenuItem): void {
+    this.signalActivity()
     const action: CartActionMessage = {
       type: "CART_ACTION",
       actionId: generateId(),
@@ -74,6 +109,7 @@ export class SessionSyncManager {
 
   /** Submit a DECREMENT action for an item by ID. */
   public decrementItem(itemId: string): void {
+    this.signalActivity()
     const action: CartActionMessage = {
       type: "CART_ACTION",
       actionId: generateId(),
@@ -85,16 +121,80 @@ export class SessionSyncManager {
     void this.submitAction(action)
   }
 
-  /** Stop polling and release resources. */
+  /** Stop polling, detach listeners, and release resources. */
   public destroy(): void {
     this.isDestroyed = true
-    if (this.pollInterval) {
-      clearInterval(this.pollInterval)
-      this.pollInterval = null
+    this.clearPollTimer()
+    this.detachVisibilityListener()
+  }
+
+  // ── Adaptive interval logic ────────────────────────────
+
+  /** Returns the appropriate interval for the next poll. */
+  private getNextInterval(): number {
+    const elapsed = Date.now() - this.lastActivityAt
+    if (elapsed < BURST_WINDOW_MS) {
+      this.currentIntervalMs = ACTIVE_INTERVAL_MS
+    } else {
+      this.currentIntervalMs = IDLE_INTERVAL_MS
+    }
+    return this.currentIntervalMs
+  }
+
+  /**
+   * Clears any pending poll timer and schedules a new one.
+   * Uses setTimeout (not setInterval) so each tick can pick a
+   * fresh interval without leaking overlapping timers.
+   */
+  private scheduleNextPoll(delayMs?: number): void {
+    this.clearPollTimer()
+    if (this.isDestroyed || !this.tabVisible) return
+
+    const delay = delayMs ?? this.getNextInterval()
+    this.pollTimer = setTimeout(() => {
+      void this.poll().finally(() => {
+        if (!this.isDestroyed && this.tabVisible) {
+          this.scheduleNextPoll()
+        }
+      })
+    }, delay)
+  }
+
+  private clearPollTimer(): void {
+    if (this.pollTimer !== null) {
+      clearTimeout(this.pollTimer)
+      this.pollTimer = null
     }
   }
 
-  // ── Private ──────────────────────────────────────────────
+  // ── Visibility management ──────────────────────────────
+
+  private attachVisibilityListener(): void {
+    if (typeof document === "undefined") return
+
+    this.handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden") {
+        this.tabVisible = false
+        this.clearPollTimer()
+      } else {
+        this.tabVisible = true
+        // Resume: immediate poll then restart the loop
+        this.scheduleNextPoll(0)
+      }
+    }
+
+    document.addEventListener("visibilitychange", this.handleVisibilityChange)
+    this.tabVisible = document.visibilityState === "visible"
+  }
+
+  private detachVisibilityListener(): void {
+    if (this.handleVisibilityChange && typeof document !== "undefined") {
+      document.removeEventListener("visibilitychange", this.handleVisibilityChange)
+      this.handleVisibilityChange = null
+    }
+  }
+
+  // ── Core polling ───────────────────────────────────────
 
   private async poll(): Promise<void> {
     if (this.isDestroyed || this.isPolling) return
@@ -106,7 +206,6 @@ export class SessionSyncManager {
       )
 
       if (res.status === 404) {
-        // Session destroyed or expired
         this.callbacks.onStatusChange("disconnected")
         if (this.callbacks.onToastNotification) {
           this.callbacks.onToastNotification("Session ended.")
@@ -133,10 +232,11 @@ export class SessionSyncManager {
       // Update peer count
       this.callbacks.onPeerCountChange(data.peerCount)
 
-      // Update cart if version changed
+      // Update cart if version changed — this is a remote update, go into burst
       if (data.cartVersion > this.cartVersion) {
         this.cartVersion = data.cartVersion
         this.callbacks.onCartSync(data.cartItems, data.cartVersion)
+        this.signalActivity()
       }
 
       this.callbacks.onStatusChange("connected")
@@ -158,6 +258,8 @@ export class SessionSyncManager {
     }
   }
 
+  // ── Action submission ──────────────────────────────────
+
   private async submitAction(action: CartActionMessage): Promise<void> {
     try {
       const res = await fetch(`/api/session/${this.sessionId}/action`, {
@@ -177,11 +279,10 @@ export class SessionSyncManager {
         notification?: CartSyncMessage["notification"]
       }
 
-      // Optimistically apply the server-confirmed state
+      // Apply server-confirmed state
       this.cartVersion = data.cartVersion
       this.callbacks.onCartSync(data.cartItems, data.cartVersion)
 
-      // Show notification for own action
       if (data.notification && this.callbacks.onToastNotification) {
         this.callbacks.onToastNotification(
           `${data.notification.senderName} ${data.notification.action} ${data.notification.itemName}`,
