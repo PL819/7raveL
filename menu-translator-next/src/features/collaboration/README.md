@@ -103,8 +103,8 @@ sequenceDiagram
     Backend-->>UI_A: {sessionId}
     UI_A->>UI_A: Generate join URL, open QR drawer
     UI_A->>UI_A: Start SyncManager (polling /sync)
-    A->>B: Show QR code on screen
-
+    UI_A-->>A: Display QR code on screen
+    A->>B: Shows QR code to Person B
     B->>UI_B: Scan QR code / open link
     UI_B->>UI_B: Show JoiningSessionOverlay
     UI_B->>Backend: POST /api/session/{id}/join<br/>{peerId, peerName}
@@ -183,20 +183,7 @@ sequenceDiagram
     Backend-->>UI_B: 404 Session not found
     UI_B->>UI_B: onStatusChange("disconnected")
     UI_B->>UI_B: SyncManager.destroy()
-    UI_B->>UI_B: Show toast "Session ended."
 ```
-
-### Polling Behaviour
-
-The `SyncManager` uses **adaptive polling** to balance responsiveness with quota conservation:
-
-| Mode | Interval | Trigger |
-|------|----------|---------|
-| **Active** | 600 ms | Cart action, QR drawer opened, peer join, remote version change |
-| **Idle** | 2 s | 15 seconds with no activity |
-| **Paused** | — | Browser tab hidden (`visibilitychange`). Resumes with an immediate sync when the tab becomes visible again. |
-
-Polling uses chained `setTimeout` (not `setInterval`) so each tick selects a fresh interval, preventing timer overlap during rate transitions.
 
 ---
 
@@ -217,15 +204,3 @@ Host and guest interact identically with the server: both `POST /action` to muta
 ### Action deduplication
 
 Every `CartActionMessage` carries a unique `actionId` (UUID). The server uses Redis `SET NX` with a 60-second TTL to ensure each action is applied at most once. If a client retries a failed request or a duplicate arrives via a race condition, the server returns the current cart state without re-applying the mutation.
-
-### Why not WebRTC
-
-An earlier iteration used WebRTC DataChannels for peer-to-peer cart sync. It was replaced for several compounding reasons:
-
-- **No persistent server for signaling.** Vercel serverless functions cannot maintain WebSocket connections, so the signaling layer (SDP offer/answer, ICE candidate exchange) had to be emulated via 1-second HTTP polling through Redis. This added 4–8 seconds to connection setup — worse latency than simply polling for cart state directly.
-- **No TURN server.** The implementation only configured STUN servers. Without TURN, approximately 15–20 % of connections fail entirely (symmetric NATs, carrier-grade NAT, corporate firewalls) — a significant rate for a restaurant use case where users are on cellular data.
-- **Privacy argument was moot.** Cart state was already stored in Redis for the relay fallback path, so true P2P privacy was never achieved.
-- **Dual-transport state drift.** Both WebRTC DataChannel and HTTP relay ran concurrently as primary and fallback. Cart actions could flow through both channels simultaneously, causing the host to process the same mutation twice — the root cause of the item-count discrepancies observed in testing.
-- **Host as single point of failure.** The host browser acted as the authoritative state owner. If Person A closed their tab or lost connectivity, all peers lost their cart state. The server-authoritative model persists state in Redis independent of any single client.
-
-WebRTC remains the right choice for media streaming, file transfer, or sub-50 ms latency requirements — but for synchronising a shared food order, server-mediated polling is simpler, more reliable, and fully serverless-compatible.
