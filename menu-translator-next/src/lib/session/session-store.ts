@@ -19,10 +19,10 @@ export interface ServerSessionRecord {
   lastActiveAt: number
 }
 
-const redis = new Redis({
-  url: process.env.UPSTASH_REDIS_REST_URL ?? "https://perfect-guppy-99316.upstash.io",
-  token: process.env.UPSTASH_REDIS_REST_TOKEN ?? "gQAAAAAAAYP0AAIgcDIwMmRlNTYzYzY5MTc0ZTdlYWVjYjQ4N2I5OGE2NTFmZQ",
-})
+const url = process.env.UPSTASH_REDIS_REST_URL
+const token = process.env.UPSTASH_REDIS_REST_TOKEN
+if (!url || !token) throw new Error("Missing Upstash Redis env vars")
+const redis = new Redis({ url, token })
 
 const EXPIRY_SECONDS = 3 * 60 * 60 // 3 hours
 
